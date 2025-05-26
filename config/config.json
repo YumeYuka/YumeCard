@@ -1,4 +1,13 @@
 {
-  "name": "YumeCard",
-  "version": "1.0.0"
+    "check_interval_hours": 24,
+    "data_file_path": "./data/repositories.json",
+    "push_enabled": true,
+    "supported_platforms": [
+        "github.com",
+        "gitee.com"
+    ],
+    "api_endpoints": {
+        "github": "https://api.github.com/repos/{user}/{repo}/commits",
+        "gitee": "https://gitee.com/api/v5/repos/{user}/{repo}/commits"
+    }
 }
