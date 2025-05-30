@@ -1,7 +1,6 @@
 {
   "name": "yumecard",
-  "version-string": "1.0.0",
-  "builtin-baseline": "5f172498fadd50a37155f667790690895f99f099",
+  "version-string": "0.1.0",
   "dependencies": [
     "curl",
     "nlohmann-json",

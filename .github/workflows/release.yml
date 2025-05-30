@@ -122,13 +122,9 @@ jobs:
             export CXX=aarch64-linux-gnu-g++
           fi
 
-          # 安装核心依赖
-          vcpkg install curl nlohmann-json zlib --triplet ${{ matrix.vcpkg_triplet }}
-
-          # Windows特定依赖
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            vcpkg install openssl --triplet ${{ matrix.vcpkg_triplet }}
-          fi
+          # 从 vcpkg.json 安装依赖
+          # --triplet 参数仍然需要，以确保为正确的架构安装依赖
+          vcpkg install --triplet ${{ matrix.vcpkg_triplet }}
 
       # Windows CMake配置
       - name: Configure CMake (Windows)
