@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # 设置vcpkg triplet和工具链文件
-set(VCPKG_TARGET_TRIPLET "x64-mingw-dynamic" CACHE STRING "Vcpkg target triplet")
+set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "Vcpkg target triplet")
 set(CMAKE_TOOLCHAIN_FILE "C:/tool/vcpkg/scripts/buildsystems/vcpkg.cmake"
         CACHE STRING "Vcpkg toolchain file")
 
@@ -12,8 +12,8 @@ set(VCPKG_MANIFEST_MODE OFF CACHE BOOL "")
 project(YumeCard VERSION 1.0.0 LANGUAGES CXX)
 
 # 设置依赖库路径
-set(CURL_DIR "C:/tool/vcpkg/installed/x64-mingw-dynamic/share/curl")
-set(nlohmann_json_DIR "C:/tool/vcpkg/installed/x64-mingw-dynamic/share/nlohmann_json")
+set(CURL_DIR "C:/tool/vcpkg/installed/x64-mingw-static/share/curl")
+set(nlohmann_json_DIR "C:/tool/vcpkg/installed/x64-mingw-static/share/nlohmann_json")
 
 # 查找依赖库
 find_package(ZLIB REQUIRED)
