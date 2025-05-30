@@ -89,11 +89,19 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Clean vcpkg directory # 新增步骤
+        shell: bash
+        run: |
+          if [ -d "${{ github.workspace }}/vcpkg" ]; then
+            echo "Removing existing vcpkg directory..."
+            rm -rf "${{ github.workspace }}/vcpkg"
+          fi
+
       - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
+        uses: lukka/run-vcpkg@v11.5
         with:
           # 更新到较新的 vcpkg 提交以获取最新的 portfile 和修复
-          vcpkgGitCommitId: "c9a7955970a0e0f6ed9c103f015bbb567a378191" # 例如：2024年5月1日的提交
+          vcpkgGitCommitId: "b3dd708d38df5c856fe1c18dc0d59ab771f93921" # 例如：2024年5月1日的提交
 
       - name: Get version from tag or input
         id: get_version
