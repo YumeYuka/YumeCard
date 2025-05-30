@@ -115,16 +115,24 @@ jobs:
     name: Build ${{ matrix.display_name }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository # Main project checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
+      # New steps to checkout a specific vcpkg version
+      - name: Checkout vcpkg repository
+        uses: actions/checkout@v4
+        with:
+          repository: "microsoft/vcpkg"
+          path: "vcpkg_custom" # Relative path for the vcpkg checkout
+          ref: "2024.05.24" # Use the latest vcpkg release tag
+
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "a42af01b72c28a8e1d7b48107b33e4f286a55ef6"
+          vcpkgDirectory: "${{ github.workspace }}/vcpkg_custom" # Point to the checked-out vcpkg directory
 
       - name: Get version from tag or input
         id: get_version
@@ -377,14 +385,14 @@ jobs:
 
           find artifacts -type f \\( -name "*.zip" -o -name "*.tar.gz" \\) -print0 | while IFS= read -r -d $\'\\0\' pkg_file_path; do
             pkg_file_name=$(basename "$pkg_file_path")
-          
+
             platform_name_extracted=$(echo "$pkg_file_name" | sed -E "s/YumeCard-${{ steps.get_version.outputs.version }}-//; s/\\.(zip|tar\\.gz)$//")
 
             pkg_format=""
             if [[ "$pkg_file_name" == *.zip ]]; then pkg_format="zip"; else pkg_format="tar.gz"; fi
 
             pkg_file_size=$(du -sh "$pkg_file_path" | awk \'{print $1}\')
-          
+
             checksum_value="N/A"
             checksum_file_name="YumeCard-${{ steps.get_version.outputs.version }}-${platform_name_extracted}.sha256"
             checksum_file_path="$(dirname "$pkg_file_path")/$checksum_file_name"
@@ -393,14 +401,14 @@ jobs:
               checksum_value=$(grep "$pkg_file_name" "$checksum_file_path" | awk \'{print $1}\')
               if [ -z "$checksum_value" ]; then checksum_value="Error"; fi
             fi
-          
+
             echo "| $pkg_file_name | $platform_name_extracted | $pkg_format | $pkg_file_size | $checksum_value |" >> release_notes.md
           done
 
           echo "" >> release_notes.md
           echo "SHA256 checksums are available in each asset's accompanying \`.sha256\` file." >> release_notes.md
           echo "" >> release_notes.md
-          echo "See [BUILD.md](https://github.com/${{ github.repository }}/blob/main/BUILD.md) for build instructions." >> release_notes.md # Corrected typo
+          echo "See [BUILD.md](https://github.com/${{ github.repository }}/blob/main/BUILD.md) for build instructions." >> release_notes.md
           echo "See [MULTI_ARCH_README.md](https://github.com/${{ github.repository }}/blob/main/MULTI_ARCH_README.md) for multi-architecture details." >> release_notes.md
 
           echo "body<<EOF" >> $GITHUB_OUTPUT
@@ -461,7 +469,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   post-release:
-    needs: [ create-release, upload-assets ]
+    needs: [create-release, upload-assets]
     runs-on: ubuntu-latest
     if: success()
     steps:
