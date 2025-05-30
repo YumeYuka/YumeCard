@@ -115,24 +115,14 @@ jobs:
     name: Build ${{ matrix.display_name }}
 
     steps:
-      - name: Checkout repository # Main project checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      # New steps to checkout a specific vcpkg version
-      - name: Checkout vcpkg repository
-        uses: actions/checkout@v4
-        with:
-          repository: "microsoft/vcpkg"
-          path: "vcpkg_custom" # Relative path for the vcpkg checkout
-          ref: "2024.05.24" # Use the latest vcpkg release tag
-
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgDirectory: "${{ github.workspace }}/vcpkg_custom" # Point to the checked-out vcpkg directory
 
       - name: Get version from tag or input
         id: get_version
@@ -310,27 +300,23 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-build
-          path: |
-            build/release/YumeCard-${{ steps.get_version.outputs.version }}-${{ matrix.name }}.*
-          retention-days: 30
+          path: build/release/*
 
   # 创建GitHub Release
   create-release:
     needs: build-matrix
     runs-on: ubuntu-latest
-    if: always() && (needs.build-matrix.result == 'success')
-
-    outputs:
-      upload_url: ${{ steps.create_release_step.outputs.upload_url }}
-      release_id: ${{ steps.create_release_step.outputs.id }}
-      version: ${{ steps.get_version.outputs.version }}
-      prerelease: ${{ steps.prerelease_check.outputs.is_prerelease }}
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Get version
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag or input
         id: get_version
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
@@ -340,138 +326,81 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "version_no_v=${VERSION#v}" >> $GITHUB_OUTPUT
 
-      - name: Determine prerelease flag
-        id: prerelease_check
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.prerelease }}" = "true" ]; then
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-          fi
-
+      # 下载所有构建产物
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: release-artifacts
 
+      # 生成发布说明
       - name: Generate release notes
         id: release_notes
         run: |
-          cat > release_notes.md << EOF
-          # YumeCard Release ${{ steps.get_version.outputs.version }}
+          cat > release_notes.md << 'EOF'
+          ## YumeCard ${{ steps.get_version.outputs.version }}
 
-          ## 🚀 新功能与改进
+          ### 新版本特性
+          - 多平台支持：Windows (x64, x86, ARM64), Linux (x64, ARM64), macOS (Intel, Apple Silicon, Universal)
+          - 优化的构建系统和性能改进
+          - 完整的CI/CD自动化流程
 
-          这个版本包含了多平台编译支持和性能优化。更多详细信息请查看 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)。
+          ### 下载说明
+          选择适合您系统的版本：
 
-          ## 📦 支持的平台和架构
+          #### Windows
+          - **YumeCard-${{ steps.get_version.outputs.version }}-windows-x64.zip** - Windows 64位 (推荐)
+          - **YumeCard-${{ steps.get_version.outputs.version }}-windows-x86.zip** - Windows 32位
+          - **YumeCard-${{ steps.get_version.outputs.version }}-windows-arm64.zip** - Windows ARM64
 
-          | 平台 | 架构 | 包格式 | 状态 |
-          |------|------|--------|------|
+          #### Linux
+          - **YumeCard-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz** - Linux 64位 (推荐)
+          - **YumeCard-${{ steps.get_version.outputs.version }}-linux-arm64.tar.gz** - Linux ARM64
+
+          #### macOS
+          - **YumeCard-${{ steps.get_version.outputs.version }}-macos-universal.tar.gz** - macOS 通用版本 (推荐)
+          - **YumeCard-${{ steps.get_version.outputs.version }}-macos-x64.tar.gz** - macOS Intel
+          - **YumeCard-${{ steps.get_version.outputs.version }}-macos-arm64.tar.gz** - macOS Apple Silicon
+
+          ### 安装说明
+          1. 下载适合您系统的压缩包
+          2. 解压到您选择的目录
+          3. 运行包含的安装脚本（可选）
+          4. 使用 `yumecard --help` 查看使用说明
+
+          ### 校验和 (SHA256)
+          每个下载包都包含相应的 `.sha256` 文件用于校验文件完整性。
+
+          ### 系统要求
+          - Windows: Windows 10/11 或更高版本
+          - Linux: 现代Linux发行版 (Ubuntu 18.04+, CentOS 7+, 等)
+          - macOS: macOS 10.15 (Catalina) 或更高版本
+
           EOF
-          # 此处可以根据需要动态填充支持的平台和架构表，
-          # 例如，通过解析 build-matrix 作业的 matrix 定义（如果作为 artifact 传递）
-          # 或者基于下载的构建产物目录来推断。
-          # 为简化起见，暂时保留手动更新或更高级脚本的空间。
-          # 示例：
-          # echo "| Windows x64 | x64 | zip | ✅ |" >> release_notes.md
-          # echo "| Linux x64   | x64 | tar.gz | ✅ |" >> release_notes.md
 
-          echo "" >> release_notes.md
-          echo "## 📦 Assets" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "| File | Platform | Format | Size | SHA256 Checksum |" >> release_notes.md
-          echo "|------|----------|--------|------|-----------------|" >> release_notes.md
-
-          find artifacts -type f \\( -name "*.zip" -o -name "*.tar.gz" \\) -print0 | while IFS= read -r -d $\'\\0\' pkg_file_path; do
-            pkg_file_name=$(basename "$pkg_file_path")
-
-            platform_name_extracted=$(echo "$pkg_file_name" | sed -E "s/YumeCard-${{ steps.get_version.outputs.version }}-//; s/\\.(zip|tar\\.gz)$//")
-
-            pkg_format=""
-            if [[ "$pkg_file_name" == *.zip ]]; then pkg_format="zip"; else pkg_format="tar.gz"; fi
-
-            pkg_file_size=$(du -sh "$pkg_file_path" | awk \'{print $1}\')
-
-            checksum_value="N/A"
-            checksum_file_name="YumeCard-${{ steps.get_version.outputs.version }}-${platform_name_extracted}.sha256"
-            checksum_file_path="$(dirname "$pkg_file_path")/$checksum_file_name"
-
-            if [ -f "$checksum_file_path" ]; then
-              checksum_value=$(grep "$pkg_file_name" "$checksum_file_path" | awk \'{print $1}\')
-              if [ -z "$checksum_value" ]; then checksum_value="Error"; fi
-            fi
-
-            echo "| $pkg_file_name | $platform_name_extracted | $pkg_format | $pkg_file_size | $checksum_value |" >> release_notes.md
-          done
-
-          echo "" >> release_notes.md
-          echo "SHA256 checksums are available in each asset's accompanying \`.sha256\` file." >> release_notes.md
-          echo "" >> release_notes.md
-          echo "See [BUILD.md](https://github.com/${{ github.repository }}/blob/main/BUILD.md) for build instructions." >> release_notes.md
-          echo "See [MULTI_ARCH_README.md](https://github.com/${{ github.repository }}/blob/main/MULTI_ARCH_README.md) for multi-architecture details." >> release_notes.md
-
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          cat release_notes.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
+      # 创建Release
       - name: Create GitHub Release
-        id: create_release_step
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.get_version.outputs.version }}
           name: YumeCard ${{ steps.get_version.outputs.version }}
           body_path: release_notes.md
           draft: false
-          prerelease: ${{ steps.prerelease_check.outputs.is_prerelease }}
-          # Files will be uploaded by the 'upload-assets' job
-
-  upload-assets:
-    needs: create-release
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include: # This matrix should mirror the one in 'build-matrix' for artifact names
-          - name: "windows-x64"
-          - name: "windows-x86"
-          - name: "windows-arm64"
-          - name: "linux-x64"
-          - name: "linux-arm64"
-          - name: "macos-x64"
-          - name: "macos-arm64"
-          - name: "macos-universal"
-    steps:
-      - name: Download specific artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ matrix.name }}-build # Artifact from build-matrix job
-          path: staging/${{ matrix.name }}
-
-      - name: List files for upload (debug)
-        run: |
-          echo "Files for ${{ matrix.name }}:"
-          ls -R staging/${{ matrix.name }}
-          echo "Expected package pattern: YumeCard-${{ needs.create-release.outputs.version }}-${{ matrix.name }}.*"
-          echo "Actual files:"
-          find staging/${{ matrix.name }} -name "YumeCard-${{ needs.create-release.outputs.version }}-${{ matrix.name }}.*"
-
-      - name: Upload Release Assets for ${{ matrix.name }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.create-release.outputs.version }}
-          prerelease: ${{ needs.create-release.outputs.prerelease }}
-          # The body, name, draft status are set by the 'create-release' job.
-          # This step appends files to the existing release.
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
           files: |
-            staging/${{ matrix.name }}/YumeCard-${{ needs.create-release.outputs.version }}-${{ matrix.name }}.*
+            release-artifacts/**/*.zip
+            release-artifacts/**/*.tar.gz
+            release-artifacts/**/*.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  post-release:
-    needs: [create-release, upload-assets]
-    runs-on: ubuntu-latest
-    if: success()
-    steps:
-      - name: Notify success
-        run: echo "✅ Release ${{ needs.create-release.outputs.version }} successfully created and assets uploaded."
+      # 输出发布信息
+      - name: Release Summary
+        run: |
+          echo "🎉 YumeCard ${{ steps.get_version.outputs.version }} 发布成功!"
+          echo ""
+          echo "📦 构建的平台:"
+          echo "  - Windows: x64, x86, ARM64"
+          echo "  - Linux: x64, ARM64"
+          echo "  - macOS: Intel, Apple Silicon, Universal"
+          echo ""
+          echo "🔗 发布链接: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.version }}"
