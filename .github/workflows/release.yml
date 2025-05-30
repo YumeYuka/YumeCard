@@ -79,38 +79,6 @@ jobs:
             package_format: "tar.gz"
             cross_compile: true
 
-          # macOS构建
-          - name: "macos-x64"
-            display_name: "macOS Intel"
-            os: macos-latest
-            arch: x64
-            platform: x64
-            vcpkg_triplet: x64-osx
-            cmake_generator: "Unix Makefiles"
-            executable_name: "YumeCard_x64"
-            package_format: "tar.gz"
-
-          - name: "macos-arm64"
-            display_name: "macOS Apple Silicon"
-            os: macos-latest
-            arch: arm64
-            platform: arm64
-            vcpkg_triplet: arm64-osx
-            cmake_generator: "Unix Makefiles"
-            executable_name: "YumeCard_arm64"
-            package_format: "tar.gz"
-
-          - name: "macos-universal"
-            display_name: "macOS Universal"
-            os: macos-latest
-            arch: universal
-            platform: universal
-            vcpkg_triplet: x64-osx
-            cmake_generator: "Unix Makefiles"
-            executable_name: "YumeCard_universal"
-            package_format: "tar.gz"
-            universal_binary: true
-
     runs-on: ${{ matrix.os }}
     name: Build ${{ matrix.display_name }}
 
@@ -121,12 +89,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Clone vcpkg repository
-        run: git clone --depth 1 https://github.com/microsoft/vcpkg.git vcpkg
-        shell: bash
-
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: "5b1214315250939257ef5d62ecdcbca18cf4fb1c"
 
       - name: Get version from tag or input
         id: get_version
@@ -191,18 +157,6 @@ jobs:
             -DYUMECARD_VERSION="${{ steps.get_version.outputs.version_no_v }}"
           )
 
-          # macOS架构设置
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            if [ "${{ matrix.universal_binary }}" = "true" ]; then
-              CMAKE_ARGS+=(-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64")
-            elif [ "${{ matrix.arch }}" = "arm64" ]; then
-              CMAKE_ARGS+=(-DCMAKE_OSX_ARCHITECTURES=arm64)
-            elif [ "${{ matrix.arch }}" = "x64" ]; then
-              CMAKE_ARGS+=(-DCMAKE_OSX_ARCHITECTURES=x86_64)
-            fi
-            CMAKE_ARGS+=(-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15)
-          fi
-
           # Linux交叉编译设置
           if [ "${{ matrix.cross_compile }}" = "true" ] && [ "${{ matrix.arch }}" = "arm64" ]; then
             CMAKE_ARGS+=(
@@ -218,7 +172,7 @@ jobs:
       # 编译构建
       - name: Build project
         run: |
-          cmake --build build --config Release --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+          cmake --build build --config Release --parallel
         shell: bash
 
       # 运行基本测试
@@ -344,7 +298,7 @@ jobs:
           ## YumeCard ${{ steps.get_version.outputs.version }}
 
           ### 新版本特性
-          - 多平台支持：Windows (x64, x86, ARM64), Linux (x64, ARM64), macOS (Intel, Apple Silicon, Universal)
+          - 多平台支持：Windows (x64, x86, ARM64), Linux (x64, ARM64)
           - 优化的构建系统和性能改进
           - 完整的CI/CD自动化流程
 
@@ -360,11 +314,6 @@ jobs:
           - **YumeCard-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz** - Linux 64位 (推荐)
           - **YumeCard-${{ steps.get_version.outputs.version }}-linux-arm64.tar.gz** - Linux ARM64
 
-          #### macOS
-          - **YumeCard-${{ steps.get_version.outputs.version }}-macos-universal.tar.gz** - macOS 通用版本 (推荐)
-          - **YumeCard-${{ steps.get_version.outputs.version }}-macos-x64.tar.gz** - macOS Intel
-          - **YumeCard-${{ steps.get_version.outputs.version }}-macos-arm64.tar.gz** - macOS Apple Silicon
-
           ### 安装说明
           1. 下载适合您系统的压缩包
           2. 解压到您选择的目录
@@ -377,7 +326,6 @@ jobs:
           ### 系统要求
           - Windows: Windows 10/11 或更高版本
           - Linux: 现代Linux发行版 (Ubuntu 18.04+, CentOS 7+, 等)
-          - macOS: macOS 10.15 (Catalina) 或更高版本
 
           EOF
 
@@ -405,6 +353,5 @@ jobs:
           echo "📦 构建的平台:"
           echo "  - Windows: x64, x86, ARM64"
           echo "  - Linux: x64, ARM64"
-          echo "  - macOS: Intel, Apple Silicon, Universal"
           echo ""
           echo "🔗 发布链接: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.version }}"
