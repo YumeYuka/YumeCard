@@ -36,12 +36,12 @@ namespace yumecard {
         char const* const patch        = PROJECT_VERSION_PATCH_STR;
 
         // These need to be populated by CMake. For example, by using execute_process to get git commit.
-        char const* const build_date       = "@CONFIG_BUILD_DATE@";       // CMake variable
-        char const* const build_commit     = "@CONFIG_GIT_COMMIT@";       // CMake variable
-        char const* const target_platform  = "@CONFIG_TARGET_PLATFORM@";  // CMake variable
-        char const* const target_arch      = "@CONFIG_TARGET_ARCH@";      // CMake variable
-        char const* const compiler         = "@CONFIG_COMPILER_ID@";      // CMake variable
-        char const* const compiler_version = "@CONFIG_COMPILER_VERSION@"; // CMake variable
+        char const* const build_date       = CONFIG_BUILD_DATE;
+        char const* const build_commit     = CONFIG_GIT_COMMIT;
+        char const* const target_platform  = CONFIG_TARGET_PLATFORM;
+        char const* const target_arch      = CONFIG_TARGET_ARCH;
+        char const* const compiler         = CONFIG_COMPILER_ID;
+        char const* const compiler_version = CONFIG_COMPILER_VERSION;
 
         std::string full_string() {
             std::ostringstream oss;
