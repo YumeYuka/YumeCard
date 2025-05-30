@@ -92,7 +92,8 @@ jobs:
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "5b1214315250939257ef5d62ecdcbca18cf4fb1c"
+          # 更新到较新的 vcpkg 提交以获取最新的 portfile 和修复
+          vcpkgGitCommitId: "c9a7955970a0e0f6ed9c103f015bbb567a378191" # 例如：2024年5月1日的提交
 
       - name: Get version from tag or input
         id: get_version
@@ -124,6 +125,7 @@ jobs:
 
           # 从 vcpkg.json 安装依赖
           # --triplet 参数仍然需要，以确保为正确的架构安装依赖
+          # 此命令将读取更新后的 vcpkg.json 文件
           vcpkg install --triplet ${{ matrix.vcpkg_triplet }}
 
       # Windows CMake配置

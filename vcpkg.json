@@ -1,13 +1,5 @@
 {
   "name": "yumecard",
   "version-string": "0.1.0",
-  "dependencies": [
-    "curl",
-    "nlohmann-json",
-    "zlib",
-    {
-      "name": "openssl",
-      "platform": "windows"
-    }
-  ]
+  "dependencies": ["curl", "nlohmann-json"]
 }
