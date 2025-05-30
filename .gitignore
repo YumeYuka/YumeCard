@@ -1,0 +1,7 @@
+/node_modules/*
+/build/*
+/build-clion/*
+/build-qtcreator/*
+/build-test/
+/build-x64/
+build-x86/

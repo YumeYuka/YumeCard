@@ -1,0 +1,21 @@
+{
+  "GitHub": {
+    "username": "YumeYuka",
+    "backgrounds": "true",
+    "token": "",
+    "repository": [
+      {
+        "owner": "YumeYuka",
+        "branch": "main",
+        "repo": "YumeYuka",
+        "lastsha": ""
+      },
+      {
+        "owner": "YumeYuka",
+        "branch": "mian",
+        "repo": "YumeCard",
+        "lastsha": ""
+      }
+    ]
+  }
+}

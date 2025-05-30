@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{{title}}</title>
+    <link href="custom.css" rel="stylesheet">
+    <!-- The {{backgroundImage}} will be set as an inline style on the body by C++ -->
+    <!-- The {{customCSS}} block is removed as main styles are in custom.css -->
+</head>
+<body style="background-image: url('{{backgroundImage}}');">
+<div class="container">
+    <div class="header">
+        <h1>GitHub 仓库更新</h1>
+        <div class="repo-info">{{owner}}/{{repo}}</div>
+        {{description_html_content}} <!-- C++ will provide <div class="repo-desc">...</div> or empty -->
+        <div class="commit-stats">
+            <div class="stat-item">新增提交: {{commitCount}}</div>
+            <div class="stat-item">分支: {{branch}}</div>
+            {{last_update_html_content}} <!-- C++ will provide <div class="stat-item">...</div> or empty -->
+        </div>
+    </div>
+
+    <div class="commits-container">
+        <ul class="commit-list {{commit_list_class}}">
+            {{commits_list_html}} <!-- C++ will provide the full list of <li> items -->
+        </ul>
+    </div>
+
+    <div class="footer">
+        <p>
+            <img alt="GitHub Logo" class="logo"
+                 src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png">
+            由 YumeCard 生成
+        </p>
+        <p class="time-info">生成时间: {{currentDate}}</p>
+
+        <p class="author-info">
+            作者: YumeYuka &nbsp;|&nbsp; 开源协议: YYSO
+        </p>
+    </div>
+</div>
+</body>
+</html>
+

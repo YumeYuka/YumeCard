@@ -1,0 +1,47 @@
+#pragma once
+
+// YumeCard 版本信息
+// 此文件由 CMake 自动生成，请勿手动编辑
+
+#define YUMECARD_VERSION_MAJOR  @PROJECT_VERSION_MAJOR @
+#define YUMECARD_VERSION_MINOR  @PROJECT_VERSION_MINOR @
+#define YUMECARD_VERSION_PATCH  @PROJECT_VERSION_PATCH @
+#define YUMECARD_VERSION_STRING "@PROJECT_VERSION@"
+
+// 构建信息
+#define YUMECARD_BUILD_DATE   "@BUILD_DATE@"
+#define YUMECARD_BUILD_COMMIT "@GIT_COMMIT@"
+
+// 平台信息
+#define YUMECARD_TARGET_PLATFORM "@CMAKE_SYSTEM_NAME@"
+#define YUMECARD_TARGET_ARCH     "@CMAKE_SYSTEM_PROCESSOR@"
+
+// 编译器信息
+#define YUMECARD_COMPILER         "@CMAKE_CXX_COMPILER_ID@"
+#define YUMECARD_COMPILER_VERSION "@CMAKE_CXX_COMPILER_VERSION@"
+
+namespace yumecard {
+    namespace version {
+        int constexpr major                    = YUMECARD_VERSION_MAJOR;
+        int constexpr minor                    = YUMECARD_VERSION_MINOR;
+        int constexpr patch                    = YUMECARD_VERSION_PATCH;
+        char constexpr const* string           = YUMECARD_VERSION_STRING;
+        char constexpr const* build_date       = YUMECARD_BUILD_DATE;
+        char constexpr const* build_commit     = YUMECARD_BUILD_COMMIT;
+        char constexpr const* target_platform  = YUMECARD_TARGET_PLATFORM;
+        char constexpr const* target_arch      = YUMECARD_TARGET_ARCH;
+        char constexpr const* compiler         = YUMECARD_COMPILER;
+        char constexpr const* compiler_version = YUMECARD_COMPILER_VERSION;
+
+        // 获取完整版本字符串
+        char const inline* full_string() {
+            char static full_version[256];
+            snprintf(full_version, sizeof(full_version), "%s (%s %s, built with %s %s on %s)", string,
+                     target_platform, target_arch, compiler, compiler_version, build_date);
+            return full_version;
+        }
+
+        // 检查版本兼容性
+        bool constexpr is_compatible(int maj, int min) { return (major == maj) && (minor >= min); }
+    }
+}

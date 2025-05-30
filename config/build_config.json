@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "application": {
+    "name": "YumeCard",
+    "description": "多平台游戏卡片生成工具",
+    "author": "YumeCard Project",
+    "license": "MIT"
+  },
+  "build": {
+    "architecture": "auto-detect",
+    "optimization": "release",
+    "debug_symbols": false,
+    "static_linking": true
+  },
+  "platforms": {
+    "windows": {
+      "supported_architectures": [
+        "x64",
+        "x86",
+        "arm64",
+        "arm32"
+      ],
+      "compiler": "msvc",
+      "runtime": "static"
+    },
+    "linux": {
+      "supported_architectures": [
+        "x64",
+        "x86",
+        "arm64",
+        "arm32",
+        "riscv64"
+      ],
+      "compiler": "gcc",
+      "runtime": "dynamic"
+    },
+    "macos": {
+      "supported_architectures": [
+        "x64",
+        "arm64",
+        "universal"
+      ],
+      "compiler": "clang",
+      "runtime": "dynamic"
+    },
+    "freebsd": {
+      "supported_architectures": [
+        "x64",
+        "arm64"
+      ],
+      "compiler": "clang",
+      "runtime": "dynamic"
+    }
+  },
+  "dependencies": {
+    "curl": {
+      "version": ">=8.0.0",
+      "required": true,
+      "purpose": "HTTP client"
+    },
+    "zlib": {
+      "version": ">=1.2.11",
+      "required": true,
+      "purpose": "Compression"
+    },
+    "nlohmann_json": {
+      "version": ">=3.10.0",
+      "required": true,
+      "purpose": "JSON processing"
+    }
+  },
+  "features": {
+    "multi_architecture": true,
+    "cross_compilation": true,
+    "automated_testing": true,
+    "ci_cd_integration": true,
+    "package_generation": true
+  },
+  "output": {
+    "executable_name": "YumeCard",
+    "architecture_suffix": true,
+    "debug_suffix": true,
+    "install_directory": "bin",
+    "config_directory": "config",
+    "data_directory": "data",
+    "style_directory": "Style"
+  },
+  "testing": {
+    "unit_tests": true,
+    "integration_tests": true,
+    "performance_tests": true,
+    "cross_platform_tests": true
+  },
+  "ci_cd": {
+    "github_actions": true,
+    "auto_build": true,
+    "auto_test": true,
+    "auto_release": true,
+    "artifact_upload": true
+  }
+}

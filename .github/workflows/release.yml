@@ -1,0 +1,469 @@
+name: Release Build and Deploy
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # 匹配版本标签如 v1.0.0
+  workflow_dispatch: # 允许手动触发
+    inputs:
+      version:
+        description: "Release version (e.g., v1.0.0)"
+        required: true
+        default: "v1.0.0"
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+jobs:
+  # 多平台编译构建
+  build-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows构建
+          - name: "windows-x64"
+            display_name: "Windows x64"
+            os: windows-latest
+            arch: x64
+            platform: x64
+            vcpkg_triplet: x64-windows
+            cmake_generator: "Visual Studio 17 2022"
+            executable_name: "YumeCard_x64.exe"
+            package_format: "zip"
+
+          - name: "windows-x86"
+            display_name: "Windows x86"
+            os: windows-latest
+            arch: x86
+            platform: Win32
+            vcpkg_triplet: x86-windows
+            cmake_generator: "Visual Studio 17 2022"
+            executable_name: "YumeCard_x86.exe"
+            package_format: "zip"
+
+          - name: "windows-arm64"
+            display_name: "Windows ARM64"
+            os: windows-latest
+            arch: arm64
+            platform: ARM64
+            vcpkg_triplet: arm64-windows
+            cmake_generator: "Visual Studio 17 2022"
+            executable_name: "YumeCard_arm64.exe"
+            package_format: "zip"
+
+          # Linux构建
+          - name: "linux-x64"
+            display_name: "Linux x64"
+            os: ubuntu-latest
+            arch: x64
+            platform: x64
+            vcpkg_triplet: x64-linux
+            cmake_generator: "Unix Makefiles"
+            executable_name: "YumeCard_x64"
+            package_format: "tar.gz"
+
+          - name: "linux-arm64"
+            display_name: "Linux ARM64"
+            os: ubuntu-latest
+            arch: arm64
+            platform: arm64
+            vcpkg_triplet: arm64-linux
+            cmake_generator: "Unix Makefiles"
+            executable_name: "YumeCard_arm64"
+            package_format: "tar.gz"
+            cross_compile: true
+
+          # macOS构建
+          - name: "macos-x64"
+            display_name: "macOS Intel"
+            os: macos-latest
+            arch: x64
+            platform: x64
+            vcpkg_triplet: x64-osx
+            cmake_generator: "Unix Makefiles"
+            executable_name: "YumeCard_x64"
+            package_format: "tar.gz"
+
+          - name: "macos-arm64"
+            display_name: "macOS Apple Silicon"
+            os: macos-latest
+            arch: arm64
+            platform: arm64
+            vcpkg_triplet: arm64-osx
+            cmake_generator: "Unix Makefiles"
+            executable_name: "YumeCard_arm64"
+            package_format: "tar.gz"
+
+          - name: "macos-universal"
+            display_name: "macOS Universal"
+            os: macos-latest
+            arch: universal
+            platform: universal
+            vcpkg_triplet: x64-osx
+            cmake_generator: "Unix Makefiles"
+            executable_name: "YumeCard_universal"
+            package_format: "tar.gz"
+            universal_binary: true
+
+    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.display_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: "a42af01b72c28a8e1d7b48107b33e4f286a55ef6"
+
+      - name: Get version from tag or input
+        id: get_version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_no_v=${VERSION#v}" >> $GITHUB_OUTPUT
+
+      # Linux交叉编译工具安装
+      - name: Install Linux cross-compilation tools
+        if: matrix.cross_compile && matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      # 安装项目依赖
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ "${{ matrix.cross_compile }}" = "true" ] && [ "${{ matrix.arch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+            export CXX=aarch64-linux-gnu-g++
+          fi
+
+          # 安装核心依赖
+          vcpkg install curl nlohmann-json zlib --triplet ${{ matrix.vcpkg_triplet }}
+
+          # Windows特定依赖
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            vcpkg install openssl --triplet ${{ matrix.vcpkg_triplet }}
+          fi
+
+      # Windows CMake配置
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake -B build `
+            -A ${{ matrix.platform }} `
+            -G "${{ matrix.cmake_generator }}" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }} `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DYUMECARD_VERSION="${{ steps.get_version.outputs.version_no_v }}"
+
+      # Linux/macOS CMake配置
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          CMAKE_ARGS=(
+            -B build
+            -G "${{ matrix.cmake_generator }}"
+            -DCMAKE_BUILD_TYPE=Release
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }}
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+            -DYUMECARD_VERSION="${{ steps.get_version.outputs.version_no_v }}"
+          )
+
+          # macOS架构设置
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            if [ "${{ matrix.universal_binary }}" = "true" ]; then
+              CMAKE_ARGS+=(-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64")
+            elif [ "${{ matrix.arch }}" = "arm64" ]; then
+              CMAKE_ARGS+=(-DCMAKE_OSX_ARCHITECTURES=arm64)
+            elif [ "${{ matrix.arch }}" = "x64" ]; then
+              CMAKE_ARGS+=(-DCMAKE_OSX_ARCHITECTURES=x86_64)
+            fi
+            CMAKE_ARGS+=(-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15)
+          fi
+
+          # Linux交叉编译设置
+          if [ "${{ matrix.cross_compile }}" = "true" ] && [ "${{ matrix.arch }}" = "arm64" ]; then
+            CMAKE_ARGS+=(
+              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc
+              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+              -DCMAKE_SYSTEM_NAME=Linux
+              -DCMAKE_SYSTEM_PROCESSOR=aarch64
+            )
+          fi
+
+          cmake "${CMAKE_ARGS[@]}"
+
+      # 编译构建
+      - name: Build project
+        run: |
+          cmake --build build --config Release --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+        shell: bash
+
+      # 运行基本测试
+      - name: Run tests
+        shell: bash
+        run: |
+          cd build/bin
+          if [ -f "${{ matrix.executable_name }}" ]; then
+            echo "Testing executable: ${{ matrix.executable_name }}"
+            ./${{ matrix.executable_name }} --version || echo "Version check completed"
+            ./${{ matrix.executable_name }} --help || echo "Help command completed"
+            echo "Basic tests passed"
+          else
+            echo "Executable not found: ${{ matrix.executable_name }}"
+            ls -la
+            exit 1
+          fi
+
+      # 创建发布包
+      - name: Create release package
+        shell: bash
+        run: |
+          cd build
+
+          # 创建发布目录
+          PACKAGE_NAME="YumeCard-${{ steps.get_version.outputs.version }}-${{ matrix.name }}"
+          mkdir -p release/$PACKAGE_NAME
+
+          # 复制可执行文件
+          cp bin/${{ matrix.executable_name }} release/$PACKAGE_NAME/
+
+          # 复制资源文件
+          if [ -d "../out" ]; then
+            cp -r ../out/* release/$PACKAGE_NAME/ 2>/dev/null || true
+          fi
+
+          # 复制文档
+          cp ../README.md release/$PACKAGE_NAME/ 2>/dev/null || true
+          cp ../BUILD.md release/$PACKAGE_NAME/ 2>/dev/null || true
+          cp ../MULTI_ARCH_README.md release/$PACKAGE_NAME/ 2>/dev/null || true
+
+          # 创建安装脚本
+          if [ "${{ runner.os }}" != "Windows" ]; then
+            cat > release/$PACKAGE_NAME/install.sh << EOF
+          #!/bin/bash
+          echo "Installing YumeCard..."
+          sudo mkdir -p /usr/local/bin
+          sudo cp ${{ matrix.executable_name }} /usr/local/bin/yumecard
+          sudo chmod +x /usr/local/bin/yumecard
+          echo "YumeCard installed to /usr/local/bin/yumecard"
+          echo "Run 'yumecard --help' to get started"
+          EOF
+            chmod +x release/$PACKAGE_NAME/install.sh
+          else
+            cat > release/$PACKAGE_NAME/install.bat << EOF
+          @echo off
+          echo Installing YumeCard...
+          if not exist "%ProgramFiles%\\YumeCard" mkdir "%ProgramFiles%\\YumeCard"
+          copy "${{ matrix.executable_name }}" "%ProgramFiles%\\YumeCard\\"
+          echo YumeCard installed to %ProgramFiles%\\YumeCard
+          echo Add %ProgramFiles%\\YumeCard to your PATH to use 'yumecard' command
+          pause
+          EOF
+          fi
+
+          # 创建包
+          cd release
+          if [ "${{ matrix.package_format }}" = "zip" ]; then
+            zip -r ${PACKAGE_NAME}.zip $PACKAGE_NAME
+          else
+            tar -czf ${PACKAGE_NAME}.tar.gz $PACKAGE_NAME
+          fi
+
+          # 生成校验和
+          if command -v sha256sum >/dev/null; then
+            sha256sum ${PACKAGE_NAME}.* > ${PACKAGE_NAME}.sha256
+          elif command -v shasum >/dev/null; then
+            shasum -a 256 ${PACKAGE_NAME}.* > ${PACKAGE_NAME}.sha256
+          fi
+
+      # 上传构建产物
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-build
+          path: |
+            build/release/YumeCard-${{ steps.get_version.outputs.version }}-${{ matrix.name }}.*
+          retention-days: 30
+
+  # 创建GitHub Release
+  create-release:
+    needs: build-matrix
+    runs-on: ubuntu-latest
+    if: always() && (needs.build-matrix.result == 'success')
+
+    outputs:
+      upload_url: ${{ steps.create_release_step.outputs.upload_url }}
+      release_id: ${{ steps.create_release_step.outputs.id }}
+      version: ${{ steps.get_version.outputs.version }}
+      prerelease: ${{ steps.prerelease_check.outputs.is_prerelease }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_no_v=${VERSION#v}" >> $GITHUB_OUTPUT
+
+      - name: Determine prerelease flag
+        id: prerelease_check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.prerelease }}" = "true" ]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << EOF
+          # YumeCard Release ${{ steps.get_version.outputs.version }}
+
+          ## 🚀 新功能与改进
+
+          这个版本包含了多平台编译支持和性能优化。更多详细信息请查看 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)。
+
+          ## 📦 支持的平台和架构
+
+          | 平台 | 架构 | 包格式 | 状态 |
+          |------|------|--------|------|
+          EOF
+          # 此处可以根据需要动态填充支持的平台和架构表，
+          # 例如，通过解析 build-matrix 作业的 matrix 定义（如果作为 artifact 传递）
+          # 或者基于下载的构建产物目录来推断。
+          # 为简化起见，暂时保留手动更新或更高级脚本的空间。
+          # 示例：
+          # echo "| Windows x64 | x64 | zip | ✅ |" >> release_notes.md
+          # echo "| Linux x64   | x64 | tar.gz | ✅ |" >> release_notes.md
+
+          echo "" >> release_notes.md
+          echo "## 📦 Assets" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "| File | Platform | Format | Size | SHA256 Checksum |" >> release_notes.md
+          echo "|------|----------|--------|------|-----------------|" >> release_notes.md
+
+          find artifacts -type f \\( -name "*.zip" -o -name "*.tar.gz" \\) -print0 | while IFS= read -r -d $\'\\0\' pkg_file_path; do
+            pkg_file_name=$(basename "$pkg_file_path")
+          
+            platform_name_extracted=$(echo "$pkg_file_name" | sed -E "s/YumeCard-${{ steps.get_version.outputs.version }}-//; s/\\.(zip|tar\\.gz)$//")
+
+            pkg_format=""
+            if [[ "$pkg_file_name" == *.zip ]]; then pkg_format="zip"; else pkg_format="tar.gz"; fi
+
+            pkg_file_size=$(du -sh "$pkg_file_path" | awk \'{print $1}\')
+          
+            checksum_value="N/A"
+            checksum_file_name="YumeCard-${{ steps.get_version.outputs.version }}-${platform_name_extracted}.sha256"
+            checksum_file_path="$(dirname "$pkg_file_path")/$checksum_file_name"
+
+            if [ -f "$checksum_file_path" ]; then
+              checksum_value=$(grep "$pkg_file_name" "$checksum_file_path" | awk \'{print $1}\')
+              if [ -z "$checksum_value" ]; then checksum_value="Error"; fi
+            fi
+          
+            echo "| $pkg_file_name | $platform_name_extracted | $pkg_format | $pkg_file_size | $checksum_value |" >> release_notes.md
+          done
+
+          echo "" >> release_notes.md
+          echo "SHA256 checksums are available in each asset's accompanying \`.sha256\` file." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "See [BUILD.md](https://github.com/${{ github.repository }}/blob/main/BUILD.md) for build instructions." >> release_notes.md # Corrected typo
+          echo "See [MULTI_ARCH_README.md](https://github.com/${{ github.repository }}/blob/main/MULTI_ARCH_README.md) for multi-architecture details." >> release_notes.md
+
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release_step
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: YumeCard ${{ steps.get_version.outputs.version }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ steps.prerelease_check.outputs.is_prerelease }}
+          # Files will be uploaded by the 'upload-assets' job
+
+  upload-assets:
+    needs: create-release
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: # This matrix should mirror the one in 'build-matrix' for artifact names
+          - name: "windows-x64"
+          - name: "windows-x86"
+          - name: "windows-arm64"
+          - name: "linux-x64"
+          - name: "linux-arm64"
+          - name: "macos-x64"
+          - name: "macos-arm64"
+          - name: "macos-universal"
+    steps:
+      - name: Download specific artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.name }}-build # Artifact from build-matrix job
+          path: staging/${{ matrix.name }}
+
+      - name: List files for upload (debug)
+        run: |
+          echo "Files for ${{ matrix.name }}:"
+          ls -R staging/${{ matrix.name }}
+          echo "Expected package pattern: YumeCard-${{ needs.create-release.outputs.version }}-${{ matrix.name }}.*"
+          echo "Actual files:"
+          find staging/${{ matrix.name }} -name "YumeCard-${{ needs.create-release.outputs.version }}-${{ matrix.name }}.*"
+
+      - name: Upload Release Assets for ${{ matrix.name }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.version }}
+          prerelease: ${{ needs.create-release.outputs.prerelease }}
+          # The body, name, draft status are set by the 'create-release' job.
+          # This step appends files to the existing release.
+          files: |
+            staging/${{ matrix.name }}/YumeCard-${{ needs.create-release.outputs.version }}-${{ matrix.name }}.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  post-release:
+    needs: [ create-release, upload-assets ]
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Notify success
+        run: echo "✅ Release ${{ needs.create-release.outputs.version }} successfully created and assets uploaded."

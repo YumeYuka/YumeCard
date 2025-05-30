@@ -1,0 +1,260 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background-color: #f5f5f5;
+    /* Default background, can be overridden by {{backgroundImage}} in HTML */
+    background-image: url('backgrounds/default.jpg');
+    background-size: cover;
+    background-position: center;
+    color: #333;
+    line-height: 1.6;
+    padding: 20px;
+}
+
+.container {
+    max-width: 550px; /* 减小容器宽度，使卡片更窄 */
+    margin: 0 auto;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    padding: 20px; /* 减小内边距 */
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 20px; /* 减小头部下边距 */
+    padding-bottom: 12px; /* 减小下内边距 */
+    border-bottom: 2px solid #eaeaea;
+    position: relative;
+}
+
+.header:after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px; /* 减小装饰线宽度 */
+    height: 2px;
+    background-color: #0366d6;
+}
+
+.repo-info {
+    font-size: 1.2em; /* 减小仓库名称字体 */
+    color: #0366d6;
+    margin: 8px 0; /* 减小上下边距 */
+    font-weight: bold;
+}
+
+.repo-desc {
+    color: #666;
+    font-size: 0.95em; /* 减小描述字体 */
+    margin-bottom: 8px; /* 减小下边距 */
+}
+
+.commit-stats {
+    display: flex;
+    justify-content: center;
+    gap: 10px; /* 减小统计项间隔 */
+    margin: 10px 0; /* 减小上下边距 */
+    flex-wrap: wrap; /* 允许在小屏幕上换行 */
+}
+
+.stat-item {
+    background-color: #f1f8ff;
+    padding: 5px 10px; /* 减小内边距 */
+    border-radius: 15px;
+    font-size: 0.8em; /* 减小字体 */
+    color: #0366d6;
+    border: 1px solid #c8e1ff;
+}
+
+.commit-list {
+    list-style-type: none;
+    margin-top: 15px; /* 减小列表上边距 */
+}
+
+.commit-item {
+    padding: 12px; /* 减小卡片内边距 */
+    border-radius: 6px;
+    margin-bottom: 10px; /* 减小卡片间距 */
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); /* 减小阴影 */
+    transition: transform 0.2s ease-in-out;
+    position: relative;
+    border-left: 3px solid #0366d6; /* 减小左边框 */
+}
+
+.commit-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.commit-message {
+    font-weight: bold;
+    margin-bottom: 8px; /* 减小下边距 */
+    color: #24292e;
+    font-size: 0.95em; /* 减小字体 */
+    word-break: break-word; /* 长消息自动换行 */
+    line-height: 1.4; /* 调整行高 */
+    max-height: 4.2em; /* 限制消息高度，约三行 */
+    overflow-y: auto; /* 超出部分可滚动 */
+}
+
+.commit-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px; /* 减小间隔 */
+    margin-bottom: 5px; /* 减小下边距 */
+    color: #586069;
+    font-size: 0.8em; /* 减小字体 */
+    align-items: center; /* 垂直居中对齐 */
+}
+
+.commit-sha {
+    font-family: monospace;
+    color: #6a737d;
+    background-color: #f6f8fa;
+    padding: 2px 4px; /* 减小内边距 */
+    border-radius: 3px;
+    font-size: 0.85em; /* 减小字体 */
+}
+
+.commit-author {
+    display: flex;
+    align-items: center;
+    gap: 3px; /* 减小间隔 */
+}
+
+.author-avatar {
+    width: 20px; /* 减小头像尺寸 */
+    height: 20px; /* 减小头像尺寸 */
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* 自适应不同数量commit的样式 */
+.commit-list.few-commits .commit-item {
+    padding: 15px; /* 单个或少量commit时，增加内边距 */
+    margin-bottom: 15px; /* 增加间距 */
+}
+
+.commit-list.few-commits .commit-message {
+    font-size: 1.05em; /* 增大字体 */
+    max-height: none; /* 不限制高度 */
+}
+
+.commit-list.many-commits .commit-item {
+    padding: 8px; /* 多个commit时，减小内边距 */
+    margin-bottom: 8px; /* 减小间距 */
+}
+
+.commit-list.many-commits .commit-message {
+    font-size: 0.9em; /* 减小字体 */
+    max-height: 2.8em; /* 限制为两行 */
+}
+
+.footer {
+    text-align: center;
+    margin-top: 20px; /* 减小上边距 */
+    padding-top: 15px; /* 减小上内边距 */
+    border-top: 1px solid #eee;
+    color: #586069;
+    font-size: 0.85em; /* 减小字体 */
+}
+
+.logo {
+    height: 30px; /* 减小logo尺寸 */
+    vertical-align: middle;
+    margin-right: 8px; /* 减小右边距 */
+}
+
+.time-info, .author-info {
+    margin-top: 4px; /* 减小��边距 */
+    font-style: italic;
+    color: #6a737d;
+    font-size: 0.9em; /* 减小字体 */
+}
+
+/* 暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #0d1117;
+        color: #c9d1d9;
+    }
+
+    .container {
+        background-color: rgba(22, 27, 34, 0.9);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .header {
+        border-bottom-color: #30363d;
+    }
+
+    .repo-info {
+        color: #58a6ff;
+    }
+
+    .repo-desc {
+        color: #8b949e;
+    }
+
+    .stat-item {
+        background-color: #0d1117;
+        color: #58a6ff;
+        border-color: #30363d;
+    }
+
+    .commit-item {
+        background-color: #161b22;
+        border-left-color: #58a6ff;
+    }
+
+    .commit-message {
+        color: #c9d1d9;
+    }
+
+    .commit-details {
+        color: #8b949e;
+    }
+
+    .commit-sha {
+        color: #8b949e;
+        background-color: #0d1117;
+    }
+
+    .commit-link {
+        color: #58a6ff;
+    }
+
+    .footer {
+        border-top-color: #30363d;
+        color: #8b949e;
+    }
+}
+
+/* 响应式设计: 在小屏幕上进一步调整 */
+@media (max-width: 600px) {
+    .container {
+        max-width: 100%;
+        padding: 15px;
+    }
+
+    .commit-stats {
+        gap: 5px;
+    }
+
+    .stat-item {
+        padding: 4px 8px;
+        font-size: 0.75em;
+    }
+}
