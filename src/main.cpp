@@ -3,8 +3,12 @@
 #include "head.hpp"
 #include "read_config.hpp" // Added for listRepositories
 #include "set_config.hpp"
-#include "system_info.hpp"
-#include "version.hpp" // 包含版本信息
+#include "system_info.hpp" // Ensure system_info.hpp is included for Yume::SystemInfoManager
+#include "version.hpp"     // 包含版本信息
+
+// 函数声明
+void printVersion();
+void printHelp();
 
 // 全局变量，用于处理程序终止信号
 sig_atomic_t volatile gRunning = 1;
@@ -197,30 +201,25 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (command == "help") {
-        printHelp();
-        return 0;
-    } else if (command == "add") {
-        if (args.size() < 3) {
-            std::cerr << "错误: add命令需要owner和repo参数" << std::endl;
-            std::cerr << "用法: YumeCard add <owner> <repo> [branch]" << std::endl;
-            return 1;
-        }
+    // 创建 Yume::GitHubAPI 实例
+    Yume::GitHubAPI githubApi(config.getConfigPath()); // Corrected: Class name is GitHubAPI
 
-        std::string owner  = args[1];
-        std::string repo   = args[2];
-        std::string branch = (args.size() > 3) ? args[3] : "main";
+    // 创建 Yume::ScreenshotManager 实例
+    Yume::ScreenshotManager screenshotManager(config.styleDir);
 
-        Yume::GitHubSubscriber subscriber(config.getConfigPath(), config.styleDir, config.outputDir);
-        if (subscriber.addRepository(owner, repo, branch)) {
-            std::cout << "成功添加仓库: " << owner << "/" << repo << " (" << branch << "分支)"
-                      << std::endl;
-            return 0;
-        } else {
-            std::cerr << "添加仓库失败!" << std::endl;
-            return 1;
-        }
-    } else if (command == "check") {
+    // 创建 Yume::SystemInfoManager 实例
+    Yume::SystemInfoManager systemInfoManager; // Corrected: Use Yume namespace
+
+    // 处理命令
+    if (command == "add" && args.size() >= 3) {
+        std::string      owner  = args[1];
+        std::string      repo   = args[2];
+        std::string      branch = (args.size() >= 4) ? args[3] : "main";
+        Yume::Set_config set_config(
+            githubApi.m_config,
+            config.getConfigPath()); // m_config is public in GitHubAPI or has a getter
+        set_config.addRepository(owner, repo, branch);
+    } else if (command == "check" && args.size() >= 3) {
         if (args.size() < 3) {
             std::cerr << "错误: check命令需要owner和repo参数" << std::endl;
             std::cerr << "用法: YumeCard check <owner> <repo>" << std::endl;
@@ -279,33 +278,33 @@ int main(int argc, char* argv[]) {
         listRepositories(config.getConfigPath());
         return 0;
     } else if (command == "test-screenshot") { // New command handling
-        Yume::GitHubSubscriber subscriber(config.getConfigPath(), config.styleDir, config.outputDir);
-        std::cout << "测试截图功能..." << std::endl;
-        std::cout << "使用配置目录: " << config.configDir << std::endl;
-        std::cout << "使用样式目录: " << config.styleDir << std::endl;
-        std::cout << "输出图像目录: " << config.outputDir << std::endl;
-        subscriber.testScreenshot();
-        return 0;
+        std::map<std::string, std::string> vars;
+        vars["title"]       = "Test Card";
+        vars["description"] = "This is a test screenshot from YumeCard.";
+        vars["stars"]       = "123";
+        vars["forks"]       = "45";
+        vars["language"]    = "C++";
+        vars["repo_url"]    = "https://github.com/YumeYuka/YumeCard";
+        vars["avatar_url"] =
+            "https://avatars.githubusercontent.com/u/YOUR_USER_ID?v=4"; // Replace with actual URL or
+                                                                        // placeholder
+        vars["bg_image"] = screenshotManager.getRandomBackground();
+
+        std::string htmlPath = config.outputDir + "/test_card.html";
+        std::string pngPath  = config.outputDir + "/test_card.png";
+
+        if (screenshotManager.generateTemplate(config.styleDir + "/template.html", vars, htmlPath))
+            screenshotManager.takeScreenshot(htmlPath, pngPath);
     } else if (command == "system-info") {
-        Yume::SystemInfoManager systemInfo;
-        systemInfo.printSystemInfo();
-        systemInfo.checkCompatibility();
-        return 0;
-    } else if (command == "diagnostic") {
-        Yume::SystemInfoManager systemInfo;
-        std::string             reportPath = "./diagnostic_report.txt";
-        if (args.size() > 1) reportPath = args[1];
-        std::cout << "生成诊断报告..." << std::endl;
-        systemInfo.generateDiagnosticReport(reportPath);
-        return 0;
+        systemInfoManager.displaySystemInfo(); // Corrected: Call method on the instance
+    } else if (command == "diagnostic" && args.size() >= 2) {
+        systemInfoManager.generateDiagnosticReport(args[1]);
     } else if (command == "version") {
         printVersion();
-        return 0;
     } else if (command == "help") {
         printHelp();
-        return 0;
     } else {
-        std::cerr << "未知命令: " << command << std::endl;
+        std::cerr << "错误: 未知命令或参数不足: " << command << std::endl;
         printHelp();
         return 1;
     }

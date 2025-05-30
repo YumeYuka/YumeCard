@@ -5,6 +5,7 @@
 namespace Yume {
     class Set_config {
     public:
+        // Corrected member initialization order
         Set_config(nlohmann::json const& config, std::string config_path = "./config/config.json"):
             m_config(config), m_config_path(std::move(config_path)) {
             writeConfigToFile();
@@ -18,37 +19,36 @@ namespace Yume {
             writeConfigToFile();
         }
 
-        void setLastSha(const std::string& owner, const std::string& repo, const std::string& sha) {
+        void setLastSha(std::string const& owner, std::string const& repo, std::string const& sha) {
             if (sha.empty()) return;
 
             bool found = false;
             if (m_config.contains("GitHub") && m_config["GitHub"].contains("repository")) {
                 auto& repository = m_config["GitHub"]["repository"];
                 for (auto& repos : repository) {
-                    if (repos["owner"].get<std::string>() == owner &&
-                        repos["repo"].get<std::string>() == repo) {
+                    if (repos["owner"].get<std::string>() == owner
+                        && repos["repo"].get<std::string>() == repo) {
                         repos["lastsha"] = sha;
-                        found = true;
+                        found            = true;
                         break;
                     }
                 }
             }
 
-            if (found) {
-                writeConfigToFile();
-            }
+            if (found) writeConfigToFile();
         }
 
         // 添加新的仓库
-        void addRepository(const std::string& owner, const std::string& repo, const std::string& branch = "main") {
+        void addRepository(std::string const& owner, std::string const& repo,
+                           std::string const& branch = "main") {
             if (owner.empty() || repo.empty()) return;
 
             bool exists = false;
             if (m_config.contains("GitHub") && m_config["GitHub"].contains("repository")) {
                 auto& repository = m_config["GitHub"]["repository"];
                 for (auto& repos : repository) {
-                    if (repos["owner"].get<std::string>() == owner &&
-                        repos["repo"].get<std::string>() == repo) {
+                    if (repos["owner"].get<std::string>() == owner
+                        && repos["repo"].get<std::string>() == repo) {
                         exists = true;
                         break;
                     }
@@ -56,10 +56,10 @@ namespace Yume {
 
                 if (!exists) {
                     nlohmann::json newRepo = {
-                        {"owner", owner},
-                        {"repo", repo},
-                        {"branch", branch},
-                        {"lastsha", ""}
+                        {  "owner",  owner},
+                        {   "repo",   repo},
+                        { "branch", branch},
+                        {"lastsha",     ""}
                     };
                     repository.push_back(newRepo);
                     writeConfigToFile();
@@ -84,8 +84,10 @@ namespace Yume {
         }
 
     private:
-        std::string    m_config_path = "./config/config.json";
-        nlohmann::json m_config;
+        // Order of member variables should not strictly matter for -Wreorder if initialization list is
+        // correct However, it's good practice to declare them in the order they are initialized or
+        // logically grouped.
+        nlohmann::json m_config;      // Initialized first in the list
+        std::string    m_config_path; // Initialized second
     };
 };
-

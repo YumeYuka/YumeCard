@@ -1,47 +1,35 @@
-#pragma once
+#ifndef VERSION_HPP
+#define VERSION_HPP
 
-// YumeCard 版本信息
-// 此文件由 CMake 自动生成，请勿手动编辑
+#include <string>
 
-#define YUMECARD_VERSION_MAJOR  @PROJECT_VERSION_MAJOR @
-#define YUMECARD_VERSION_MINOR  @PROJECT_VERSION_MINOR @
-#define YUMECARD_VERSION_PATCH  @PROJECT_VERSION_PATCH @
-#define YUMECARD_VERSION_STRING "@PROJECT_VERSION@"
-
-// 构建信息
-#define YUMECARD_BUILD_DATE   "@BUILD_DATE@"
-#define YUMECARD_BUILD_COMMIT "@GIT_COMMIT@"
-
-// 平台信息
-#define YUMECARD_TARGET_PLATFORM "@CMAKE_SYSTEM_NAME@"
-#define YUMECARD_TARGET_ARCH     "@CMAKE_SYSTEM_PROCESSOR@"
-
-// 编译器信息
-#define YUMECARD_COMPILER         "@CMAKE_CXX_COMPILER_ID@"
-#define YUMECARD_COMPILER_VERSION "@CMAKE_CXX_COMPILER_VERSION@"
-
+// Define a namespace for version information consistent with main.cpp usage
 namespace yumecard {
     namespace version {
-        int constexpr major                    = YUMECARD_VERSION_MAJOR;
-        int constexpr minor                    = YUMECARD_VERSION_MINOR;
-        int constexpr patch                    = YUMECARD_VERSION_PATCH;
-        char constexpr const* string           = YUMECARD_VERSION_STRING;
-        char constexpr const* build_date       = YUMECARD_BUILD_DATE;
-        char constexpr const* build_commit     = YUMECARD_BUILD_COMMIT;
-        char constexpr const* target_platform  = YUMECARD_TARGET_PLATFORM;
-        char constexpr const* target_arch      = YUMECARD_TARGET_ARCH;
-        char constexpr const* compiler         = YUMECARD_COMPILER;
-        char constexpr const* compiler_version = YUMECARD_COMPILER_VERSION;
+        extern char const* const project_name;
+        extern char const* const string; // PROJECT_VERSION
+        extern char const* const major;
+        extern char const* const minor;
+        extern char const* const patch;
+        extern char const* const build_date;
+        extern char const* const build_commit; // You might need to get this from Git
+        extern char const* const target_platform;
+        extern char const* const target_arch;
+        extern char const* const compiler;
+        extern char const* const compiler_version;
 
-        // 获取完整版本字符串
-        char const inline* full_string() {
-            char static full_version[256];
-            snprintf(full_version, sizeof(full_version), "%s (%s %s, built with %s %s on %s)", string,
-                     target_platform, target_arch, compiler, compiler_version, build_date);
-            return full_version;
-        }
+        std::string full_string();
+    } // namespace version
+} // namespace yumecard
 
-        // 检查版本兼容性
-        bool constexpr is_compatible(int maj, int min) { return (major == maj) && (minor >= min); }
-    }
-}
+// CMake will replace these with actual values in the generated version.hpp
+// However, the actual definitions will be in version.cpp
+// For the generated version.hpp, these macros might not be needed if we rely on version.cpp
+// But for completeness with the original structure, they are kept for CMake to populate if it does so.
+#define PROJECT_NAME_STR          "@PROJECT_NAME@"
+#define PROJECT_VERSION_STR       "@PROJECT_VERSION@"
+#define PROJECT_VERSION_MAJOR_STR "@PROJECT_VERSION_MAJOR@"
+#define PROJECT_VERSION_MINOR_STR "@PROJECT_VERSION_MINOR@"
+#define PROJECT_VERSION_PATCH_STR "@PROJECT_VERSION_PATCH@"
+
+#endif // VERSION_HPP

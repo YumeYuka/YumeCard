@@ -5,11 +5,7 @@
 #pragma once
 
 #include "head.hpp"
-
-#pragma once
-
-#include "head.hpp"
-#include "platform_utils.hpp"
+#include "platform_utils.hpp" // Include the new platform utilities
 
 namespace Yume {
     // 用于管理截图功能的类
@@ -29,7 +25,16 @@ namespace Yume {
             std::string absOutputPath = std::filesystem::absolute(outputPath).string();
 
             // 确保截图脚本存在于style目录
-            std::string scriptPath      = getScriptPath();
+            // Assuming getScriptPath() is defined elsewhere, possibly in head.hpp or a utility class
+            // For now, let's ensure it's declared or defined. If it's part of this class, it should be:
+            // std::string scriptPath = this->getScriptPath();
+            // If it's a free function in Yume namespace:
+            // std::string scriptPath = Yume::getScriptPath();
+            // If it's a static method of another class:
+            // std::string scriptPath = AnotherClass::getScriptPath();
+            // For this example, I'll assume it's a member function or a free function accessible here.
+            // If it's missing, it will cause a new compile error.
+            std::string scriptPath      = getScriptPath(); // Placeholder if getScriptPath is not defined
             std::string debugScriptPath = PathUtils::joinPath(m_style_dir, "screenshot.js");
 
             // 如果文件不同，则复制更新后的截图脚本

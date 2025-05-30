@@ -20,14 +20,29 @@ namespace Yume {
     // GitHub API 封装类
     class GitHubAPI {
     public:
-        explicit GitHubAPI(std::string token = "", std::string m_config_path = "./config/config.json"):
+        // Make m_config public or add a getter if it needs to be accessed from main.cpp
+        // For now, making it public for simplicity, though a getter is usually preferred.
+        nlohmann::json m_config;
+
+        explicit GitHubAPI(std::string token = "", std::string config_path = "./config/config.json"):
             m_curl(nullptr),
-            m_token(std::move(token)),
+            // m_token(std::move(token)), // m_token will be loaded from config or set via setter
             m_initialized(false),
             m_res(CURLE_OK),
-            m_config_path(m_config_path) {}
+            m_config_path(std::move(config_path)) {
+            loadConfig(); // Load config on initialization
+            if (m_config.contains("GitHub") && m_config["GitHub"].contains("token")) {
+                m_token = m_config["GitHub"]["token"].get<std::string>();
+            } else if (!token.empty()) {
+                m_token = std::move(token); // Use provided token if not in config
+                                            // Optionally, save this token to config here if desired
+            }
+        }
 
         ~GitHubAPI() { cleanup(); }
+
+        // Add a getter for the config if m_config is to remain private
+        // const nlohmann::json& getConfig() const { return m_config; }
 
         // 初始化CURL
         bool initialize() {
@@ -96,74 +111,97 @@ namespace Yume {
         bool        m_initialized;
         CURLcode    m_res;
         std::string m_config_path;
+        // nlohmann::json m_config; // Moved to public for now
 
-        // 执行GET请求
+        // Helper function to perform GET requests
         nlohmann::json performGetRequest(std::string const& url) {
-            if (!m_initialized) {
-                if (!initialize()) return nlohmann::json::object();
+            if (!m_initialized && !initialize()) {
+                std::cerr << "CURL not initialized for performGetRequest" << std::endl;
+                return nlohmann::json::object(); // Return empty JSON object on error
             }
 
-            curl_easy_reset(m_curl);
-
-            // 设置URL
-            curl_easy_setopt(m_curl, CURLOPT_URL, url.c_str());
-
-            // 设置回调函数
-            std::string response_string;
-            curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-            curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, &response_string);
-
-            // 设置超时选项
-            curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, 30L);        // 整体超时时间设为30秒
-            curl_easy_setopt(m_curl, CURLOPT_CONNECTTIMEOUT, 10L); // 连接超时设为10秒
-
-            // 如果需要，可以启用重定向跟随
-            curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
-            curl_easy_setopt(m_curl, CURLOPT_MAXREDIRS, 5L); // 最多允许5次重定向
-
-            // 设置HTTP头，包括Accept和用户代理
+            std::string        readBuffer;
             struct curl_slist* headers = nullptr;
             headers = curl_slist_append(headers, "Accept: application/vnd.github.v3+json");
-            headers = curl_slist_append(headers, "User-Agent: YumeCard/1.0");
-
-            // 如果有token，添加授权头
+            headers = curl_slist_append(headers, "User-Agent: YumeCard-App"); // Set a User-Agent
             if (!m_token.empty()) {
-                std::string auth_header = "Authorization: token " + m_token;
-                headers                 = curl_slist_append(headers, auth_header.c_str());
+                std::string authHeader = "Authorization: token " + m_token;
+                headers                = curl_slist_append(headers, authHeader.c_str());
             }
 
+            curl_easy_setopt(m_curl, CURLOPT_URL, url.c_str());
             curl_easy_setopt(m_curl, CURLOPT_HTTPHEADER, headers);
+            curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION,
+                             Yume::WriteCallback); // Ensure Yume::WriteCallback is accessible
+            curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, &readBuffer);
+            curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, 15L);       // 15 seconds timeout
+            curl_easy_setopt(m_curl, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL peer
+            curl_easy_setopt(m_curl, CURLOPT_SSL_VERIFYHOST, 2L); // Verify SSL host
+            // curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L); // Uncomment for debugging CURL requests
 
-            // 执行请求
             m_res = curl_easy_perform(m_curl);
-
-            // 清理头部
             curl_slist_free_all(headers);
 
-            // 处理响应
             if (m_res != CURLE_OK) {
                 std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(m_res) << std::endl;
-                if (m_res == CURLE_OPERATION_TIMEDOUT)
-                    std::cerr << "连接超时，请检查网络连接或者考虑增加超时设置。" << std::endl;
                 return nlohmann::json::object();
             }
 
-            // 检查HTTP状态码
             long http_code = 0;
             curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &http_code);
-
             if (http_code >= 400) {
-                std::cerr << "HTTP error code: " << http_code << std::endl;
-                std::cerr << "Response: " << response_string << std::endl;
-                return nlohmann::json::object();
+                std::cerr << "HTTP error " << http_code << " for URL: " << url << std::endl;
+                std::cerr << "Response: " << readBuffer << std::endl;
+                return nlohmann::json::object(); // Or a JSON object with an error field
             }
 
-            // 解析JSON
             try {
-                return nlohmann::json::parse(response_string);
-            } catch (nlohmann::json::parse_error const& e) {
-                std::cerr << "JSON parse error: " << e.what() << std::endl;
-                return nlohmann::json::object();
+                if (readBuffer.empty()) {
+                    std::cerr << "Empty response from server for URL: " << url << std::endl;
+                    return nlohmann::json::object(); // Return empty JSON if response is empty
+                }
+                return nlohmann::json::parse(readBuffer);
+            } catch (nlohmann::json::parse_error& e) {
+                std::cerr << "JSON parse error: " << e.what() << "\nResponse was: " << readBuffer
+                          << std::endl;
+                return nlohmann::json::object(); // Return empty JSON object on parse error
+            }
+        }
+
+        // Load config from file
+        void loadConfig() {
+            std::ifstream configFile(m_config_path);
+            if (configFile.is_open()) {
+                try {
+                    configFile >> m_config;
+                } catch (nlohmann::json::parse_error const& e) {
+                    std::cerr << "Error parsing config file: " << m_config_path << " - " << e.what()
+                              << std::endl;
+                    // Initialize with default structure if parse fails
+                    m_config                         = nlohmann::json::object();
+                    m_config["GitHub"]               = nlohmann::json::object();
+                    m_config["GitHub"]["repository"] = nlohmann::json::array();
+                }
+                configFile.close();
+            } else {
+                std::cerr << "Config file not found, creating default: " << m_config_path << std::endl;
+                // Initialize with default structure if file not found
+                m_config                         = nlohmann::json::object();
+                m_config["GitHub"]               = nlohmann::json::object();
+                m_config["GitHub"]["repository"] = nlohmann::json::array();
+                // saveConfig(); // Optionally save the new default config
+            }
+        }
+
+        // Save config to file (optional, if changes are made internally)
+        void saveConfig() {
+            std::ofstream configFile(m_config_path);
+            if (configFile.is_open()) {
+                configFile << m_config.dump(4); // Pretty print with 4 spaces
+                configFile.close();
+            } else {
+                std::cerr << "Error: Could not open config file for writing: " << m_config_path
+                          << std::endl;
             }
         }
     };
