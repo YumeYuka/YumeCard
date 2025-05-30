@@ -100,8 +100,9 @@ jobs:
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11.5
         with:
-          # 更新到较新的 vcpkg 提交以获取最新的 portfile 和修复
-          vcpkgGitCommitId: "b3dd708d38df5c856fe1c18dc0d59ab771f93921" # 例如：2024年5月1日的提交
+          # 使用一个更新且有效的 vcpkg 提交哈希 (2024年12月)
+          vcpkgGitCommitId: "1de2026f28ead93ff1773e6e680387643e914ea1"
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
 
       - name: Get version from tag or input
         id: get_version
@@ -302,62 +303,62 @@ jobs:
         run: |
           cat > release_notes.md << 'EOF'
           ## YumeCard ${{ steps.get_version.outputs.version }}
-
           ### 新版本特性
           - 多平台支持：Windows (x64, x86, ARM64), Linux (x64, ARM64)
-          - 优化的构建系统和性能改进
+          - 优化的构建系统和性能改进s (x64, x86, ARM64), Linux (x64, ARM64)
           - 完整的CI/CD自动化流程
-
+          - 完整的CI/CD自动化流程
           ### 下载说明
           选择适合您系统的版本：
-
+          选择适合您系统的版本：
           #### Windows
           - **YumeCard-${{ steps.get_version.outputs.version }}-windows-x64.zip** - Windows 64位 (推荐)
-          - **YumeCard-${{ steps.get_version.outputs.version }}-windows-x86.zip** - Windows 32位
+          - **YumeCard-${{ steps.get_version.outputs.version }}-windows-x86.zip** - Windows 32位 (推荐)
           - **YumeCard-${{ steps.get_version.outputs.version }}-windows-arm64.zip** - Windows ARM64
-
+          - **YumeCard-${{ steps.get_version.outputs.version }}-windows-arm64.zip** - Windows ARM64
           #### Linux
           - **YumeCard-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz** - Linux 64位 (推荐)
+          - **YumeCard-${{ steps.get_version.outputs.version }}-linux-arm64.tar.gz** - Linux ARM64)
           - **YumeCard-${{ steps.get_version.outputs.version }}-linux-arm64.tar.gz** - Linux ARM64
-
           ### 安装说明
           1. 下载适合您系统的压缩包
-          2. 解压到您选择的目录
+          2. 解压到您选择的目录缩包
           3. 运行包含的安装脚本（可选）
           4. 使用 `yumecard --help` 查看使用说明
-
+          4. 使用 `yumecard --help` 查看使用说明
           ### 校验和 (SHA256)
           每个下载包都包含相应的 `.sha256` 文件用于校验文件完整性。
-
+          每个下载包都包含相应的 `.sha256` 文件用于校验文件完整性。
           ### 系统要求
           - Windows: Windows 10/11 或更高版本
           - Linux: 现代Linux发行版 (Ubuntu 18.04+, CentOS 7+, 等)
-
+          - Linux: 现代Linux发行版 (Ubuntu 18.04+, CentOS 7+, 等)
           EOF
-
+          EOF
       # 创建Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
-        with:
+        with: softprops/action-gh-release@v1
           tag_name: ${{ steps.get_version.outputs.version }}
           name: YumeCard ${{ steps.get_version.outputs.version }}
-          body_path: release_notes.md
-          draft: false
+          body_path: release_notes.mdt_version.outputs.version }}
+          draft: falseelease_notes.md
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
-          files: |
+          files: |se: ${{ github.event.inputs.prerelease == 'true' }}
             release-artifacts/**/*.zip
             release-artifacts/**/*.tar.gz
             release-artifacts/**/*.sha256
-        env:
+        env:release-artifacts/**/*.sha256
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # 输出发布信息
       - name: Release Summary
-        run: |
+        run: |Release Summary
           echo "🎉 YumeCard ${{ steps.get_version.outputs.version }} 发布成功!"
-          echo ""
+          echo "" YumeCard ${{ steps.get_version.outputs.version }} 发布成功!"
           echo "📦 构建的平台:"
           echo "  - Windows: x64, x86, ARM64"
-          echo "  - Linux: x64, ARM64"
-          echo ""
+          echo "  - Linux: x64, ARM64" ARM64"
+          echo "" - Linux: x64, ARM64"
+          echo "🔗 发布链接: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.version }}"
           echo "🔗 发布链接: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.version }}"
