@@ -59,13 +59,15 @@ jobs:
       - name: Install vcpkg packages (Linux)
         if: runner.os == 'Linux'
         run: |
-          ${{ env.VCPKG_ROOT }}/vcpkg install curl zlib nlohmann-json --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
+          cd ${{ github.workspace }}
+          ${{ env.VCPKG_ROOT }}/vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: bash
 
       - name: Install vcpkg packages (Windows)
         if: runner.os == 'Windows'
         run: |
-          & "${{ env.VCPKG_ROOT }}\vcpkg.exe" install curl zlib nlohmann-json --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
+          cd ${{ github.workspace }}
+          & "${{ env.VCPKG_ROOT }}\vcpkg.exe" install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: pwsh
 
       - name: Configure CMake
