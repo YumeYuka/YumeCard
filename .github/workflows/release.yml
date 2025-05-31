@@ -36,9 +36,6 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: ${{ matrix.vcpkg_triplet }}
       VCPKG_FEATURE_FLAGS: manifests,registries,versions
 
-    outputs:
-      version: ${{ steps.version.outputs.VERSION }}
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -152,7 +149,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.platform_name }}
+          name: build-${{ matrix.platform_name }}-${{ steps.version.outputs.VERSION }}
           path: ${{ github.workspace }}/build/${{ matrix.executable_name }}
           retention-days: 1
 
@@ -177,10 +174,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get version from build job
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "VERSION=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_type }}" == "tag" ]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-${{ matrix.platform_name }}
+          name: build-${{ matrix.platform_name }}-${{ steps.get_version.outputs.VERSION }}
           path: build/
 
       - name: Make executable (Linux)
@@ -189,18 +198,18 @@ jobs:
 
       - name: Create package directory (Linux)
         if: runner.os == 'Linux'
-        run: mkdir -p package/YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}
+        run: mkdir -p package/YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}
         shell: bash
 
       - name: Create package directory (Windows)
         if: runner.os == 'Windows'
-        run: New-Item -ItemType Directory -Force -Path "package\YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}"
+        run: New-Item -ItemType Directory -Force -Path "package\YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}"
         shell: pwsh
 
       - name: Copy files to package (Linux)
         if: runner.os == 'Linux'
         run: |
-          PACKAGE_DIR="package/YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}"
+          PACKAGE_DIR="package/YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}"
           
           # Copy executable
           cp build/${{ matrix.executable_name }} "$PACKAGE_DIR/"
@@ -217,7 +226,7 @@ jobs:
           
           # Create version file
           cat > "$PACKAGE_DIR/VERSION.txt" << EOF
-YumeCard ${{ needs.build.outputs.version }} for Linux x64
+YumeCard ${{ steps.get_version.outputs.VERSION }} for Linux x64
 Build Date: $(date)
 Platform: Linux x64
 Static Linking: Yes
@@ -254,7 +263,7 @@ EOF
       - name: Copy files to package (Windows)
         if: runner.os == 'Windows'
         run: |
-          $PACKAGE_DIR = "package\YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}"
+          $PACKAGE_DIR = "package\YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}"
           
           # Copy executable
           Copy-Item "build\${{ matrix.executable_name }}" "$PACKAGE_DIR\"
@@ -271,7 +280,7 @@ EOF
           
           # Create version file
           @"
-YumeCard ${{ needs.build.outputs.version }} for Windows x64
+YumeCard ${{ steps.get_version.outputs.VERSION }} for Windows x64
 Build Date: $(Get-Date)
 Platform: Windows x64
 Static Linking: Yes
@@ -308,24 +317,25 @@ Commit: ${{ github.sha }}
         if: runner.os == 'Linux'
         run: |
           cd package
-          tar -czf YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.tar.gz YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}/
-          echo "ASSET_PATH=package/YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.tar.gz" >> $GITHUB_ENV
-          echo "ASSET_NAME=YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.tar.gz" >> $GITHUB_ENV
+          tar -czf YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}.tar.gz YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}/
+          echo "ASSET_PATH=$(pwd)/YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_NAME=YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}.tar.gz" >> $GITHUB_ENV
         shell: bash
 
       - name: Create archive (Windows)
         if: runner.os == 'Windows'
         run: |
           cd package
-          Compress-Archive -Path "YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}" -DestinationPath "YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.zip"
-          echo "ASSET_PATH=package\YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.zip" >> $env:GITHUB_ENV
-          echo "ASSET_NAME=YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.zip" >> $env:GITHUB_ENV
+          Compress-Archive -Path "YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}" -DestinationPath "YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}.zip"
+          $currentPath = Get-Location
+          echo "ASSET_PATH=$currentPath\YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}.zip" >> $env:GITHUB_ENV
+          echo "ASSET_NAME=YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}.zip" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}
+          name: YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}
           path: ${{ env.ASSET_PATH }}
           retention-days: 30
 
@@ -335,6 +345,16 @@ Commit: ${{ github.sha }}
     runs-on: ubuntu-latest
     
     steps:
+      - name: Get version for release
+        id: release_version
+        run: |
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -343,21 +363,21 @@ Commit: ${{ github.sha }}
       - name: List downloaded artifacts
         run: |
           echo "Downloaded artifacts:"
-          find artifacts/ -type f -name "*.tar.gz" -o -name "*.zip"
+          find artifacts/ -type f -name "*.tar.gz" -o -name "*.zip" | sort
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ needs.build.outputs.version }}
-          name: YumeCard ${{ needs.build.outputs.version }}
+          tag_name: ${{ steps.release_version.outputs.VERSION }}
+          name: YumeCard ${{ steps.release_version.outputs.VERSION }}
           body: |
-            ## YumeCard ${{ needs.build.outputs.version }}
+            ## YumeCard ${{ steps.release_version.outputs.VERSION }}
             
             ### 📦 Downloads
-            - **Linux x64**: `YumeCard-${{ needs.build.outputs.version }}-linux-x64.tar.gz`
-            - **Windows x64**: `YumeCard-${{ needs.build.outputs.version }}-windows-x64.zip`
+            - **Linux x64**: `YumeCard-${{ steps.release_version.outputs.VERSION }}-linux-x64.tar.gz`
+            - **Windows x64**: `YumeCard-${{ steps.release_version.outputs.VERSION }}-windows-x64.zip`
             
             ### 🔧 Build Information
             - Build Date: ${{ github.event.head_commit.timestamp }}
@@ -385,5 +405,5 @@ Commit: ${{ github.sha }}
             ### 🆕 What's New
             Check the commit history for detailed changes since the last release.
           draft: false
-          prerelease: ${{ contains(needs.build.outputs.version, 'beta') || contains(needs.build.outputs.version, 'alpha') || contains(needs.build.outputs.version, 'rc') }}
-          files: artifacts/**/*.tar.gz,artifacts/**/*.zip
+          prerelease: ${{ contains(steps.release_version.outputs.VERSION, 'beta') || contains(steps.release_version.outputs.VERSION, 'alpha') || contains(steps.release_version.outputs.VERSION, 'rc') }}
+          files: artifacts/**/*
