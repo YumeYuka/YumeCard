@@ -29,6 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_ROOT }}
+          key: vcpkg-${{ matrix.vcpkg_triplet }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ matrix.vcpkg_triplet }}-
+
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -45,14 +53,18 @@ jobs:
       - name: Setup vcpkg (Linux)
         if: runner.os == 'Linux'
         run: |
-          git clone https://github.com/Microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+          if [ ! -d "${{ env.VCPKG_ROOT }}" ]; then
+            git clone https://github.com/Microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+          fi
           ${{ env.VCPKG_ROOT }}/bootstrap-vcpkg.sh
         shell: bash
 
       - name: Setup vcpkg (Windows)
         if: runner.os == 'Windows'
         run: |
-          git clone https://github.com/Microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+          if (!(Test-Path "${{ env.VCPKG_ROOT }}")) {
+            git clone https://github.com/Microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+          }
           & "${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat"
         shell: pwsh
 
@@ -70,9 +82,16 @@ jobs:
           & "${{ env.VCPKG_ROOT }}\vcpkg.exe" install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: pwsh
 
+      - name: Debug vcpkg installation
+        run: |
+          echo "VCPKG_ROOT: ${{ env.VCPKG_ROOT }}"
+          echo "VCPKG_DEFAULT_TRIPLET: ${{ env.VCPKG_DEFAULT_TRIPLET }}"
+          ls -la ${{ env.VCPKG_ROOT }}/installed/ || dir "${{ env.VCPKG_ROOT }}\installed\" || echo "No installed directory found"
+        shell: bash
+
       - name: Configure CMake
         run: |
-          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja"
+          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja" -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config Release
