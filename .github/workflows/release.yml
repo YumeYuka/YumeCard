@@ -337,59 +337,78 @@ Commit: ${{ github.sha }}
           retention-days: 30
 
   release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: [build, package]
+    # 此作业创建 GitHub Release。
+    # 重要提示：此工作流的 'on' 触发器当前仅为 'workflow_dispatch'。
+    # 此 'if' 条件确保仅当通过 dispatch 提供 tag_name 时才运行 release 作业。
+    # 如果您打算在推送标签或 GitHub 发布事件时触发发布，
+    # 则需要更新文件顶部的 'on' 块和此 'if' 条件。
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != ''
+    needs: [package] # 依赖于 package 作业准备好工件。
     runs-on: ubuntu-latest
     
     steps:
-      - name: Get version for release
-        id: release_version
+      - name: 准备发布信息
+        id: release_info
         run: |
-          if [ "${{ github.ref_type }}" == "tag" ]; then
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=dev-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
-          fi
+          echo "VERSION=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          echo "RELEASE_DATE=$(date --utc --iso-8601=seconds)" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Download all artifacts
+      - name: 下载所有已打包的工件
         uses: actions/download-artifact@v4
         with:
-          path: artifacts/
+          path: artifacts/ # 'package' 作业中的所有工件都将下载到此处。
 
-      - name: List downloaded artifacts
+      - name: 显示已下载工件的结构
         run: |
-          echo "Downloaded artifacts:"
-          find artifacts/ -type f -name "*.tar.gz" -o -name "*.zip" | sort
+          echo "Structure of downloaded artifacts in ./artifacts/:"
+          ls -R artifacts
+          echo "Archives found:"
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.zip" \)
+        shell: bash
 
-      - name: Create Release
+      - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.release_version.outputs.VERSION }}
-          name: YumeCard ${{ steps.release_version.outputs.VERSION }}
+          tag_name: ${{ steps.release_info.outputs.VERSION }}
+          name: YumeCard ${{ steps.release_info.outputs.VERSION }}
           body: |
-            ## YumeCard ${{ steps.release_version.outputs.VERSION }}
+            ## YumeCard ${{ steps.release_info.outputs.VERSION }}
             
-            ### 📦 Downloads
-            - **Linux x64**: `YumeCard-${{ steps.release_version.outputs.VERSION }}-linux-x64.tar.gz`
-            - **Windows x64**: `YumeCard-${{ steps.release_version.outputs.VERSION }}-windows-x64.zip`
+            发布于: ${{ steps.release_info.outputs.RELEASE_DATE }}
+            提交: ${{ github.sha }} <!-- 工作流触发提交的 SHA -->
+
+            ### 📦 下载
+            - **Linux x64**: `YumeCard-${{ steps.release_info.outputs.VERSION }}-linux-x64.tar.gz`
+            - **Windows x64**: `YumeCard-${{ steps.release_info.outputs.VERSION }}-windows-x64.zip`
             
-            ### 🔧 Build Information
-            - Build Date: ${{ github.event.head_commit.timestamp }}
-            - Commit: ${{ github.sha }}
-            - Static Linking: Yes
-            - C++ Standard: C++26
+            ### 🔧 构建信息
+            - 静态链接: Yes
+            - C++ 标准: C++26 
+            <!-- 注意: 从 head_commit.timestamp 获取的 'Build Date' 已移除，因为它对于 workflow_dispatch 不可靠。
+                 发布日期现在位于顶部。 -->
+
+            ### 📁 包内容
+            - 主可执行文件 (YumeCard/YumeCard.exe)
+            - Style 目录 (UI 主题和样式)
+            - config 目录 (配置文件)
+            - Node.js 文件 (package.json, package-lock.json)
+            - 文档 (README.md, LICENSE, INSTALL.txt, VERSION.txt)
             
-            ### 📁 Package Contents
-            - Main executable (YumeCard/YumeCard.exe)
-            - Style directory (UI themes and styles)
-            - config directory (configuration files)
-            - Node.js files (package.json, package-lock.json)
-            - Documentation (README.md, LICENSE, INSTALL.txt, VERSION.txt)
+            ### 📋 安装
+            1. 下载适用于您平台的相应包
+            2. 将存档解压缩到您期望的位置
+            3. 按照 INSTALL.txt 中的说明进行操作
+            4. 运行可执行文件
             
-            ### 📋 Installation
-            1. Download the appropriate package for your platform
-            2. Extract the archive to your desired location
-            3. Follow the instructions in INST
+            ### ⚠️ 要求
+            - 无需其他依赖项 (静态链接)
+            - 建议使用 Node.js 以支持与 Web 相关的功能
+            
+            ### 🆕 新增内容
+            查看与标签 ${{ steps.release_info.outputs.VERSION }} 相关的提交历史以获取详细更改。
+          draft: false
+          prerelease: ${{ contains(steps.release_info.outputs.VERSION, 'beta') || contains(steps.release_info.outputs.VERSION, 'alpha') || contains(steps.release_info.outputs.VERSION, 'rc') }}
+          files: artifacts/**/*
