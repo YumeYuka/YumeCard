@@ -17,7 +17,7 @@ jobs:
         architecture: [x64]
         include:
           - os: ubuntu-latest
-            vcpkg_triplet: x64-linux
+            vcpkg_triplet: x64-linux-static
           - os: windows-latest
             vcpkg_triplet: x64-mingw-static
 
@@ -135,12 +135,36 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja" -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}
+          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja" -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }} -DVCPKG_LIBRARY_LINKAGE=static -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
         env:
           VCPKG_FORCE_SYSTEM_BINARIES: 1
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config Release
+
+      - name: Test executable dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Write-Host "=== Checking executable dependencies ==="
+          if (Test-Path "${{ github.workspace }}\build\YumeCard.exe") {
+            & "ldd" "${{ github.workspace }}\build\YumeCard.exe" 2>$null || Write-Host "ldd not available, using dumpbin alternative"
+          } else {
+            Write-Host "YumeCard.exe not found"
+            Get-ChildItem "${{ github.workspace }}\build\" -Recurse -Name "*.exe"
+          }
+        shell: pwsh
+
+      - name: Test executable dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "=== Checking executable dependencies ==="
+          if [ -f "${{ github.workspace }}/build/YumeCard" ]; then
+            ldd "${{ github.workspace }}/build/YumeCard" || echo "Static executable - no dynamic dependencies"
+          else
+            echo "YumeCard not found"
+            find "${{ github.workspace }}/build/" -type f -executable
+          fi
+        shell: bash
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

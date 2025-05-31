@@ -3,6 +3,34 @@ cmake_minimum_required(VERSION 3.16)
 # 设置项目名称和版本
 project(YumeCard VERSION 1.0.0 LANGUAGES CXX)
 
+# 设置C++标准
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 强制静态链接 - 更强的配置
+if(WIN32)
+        # 设置静态运行时库
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+
+        # 优先查找静态库
+        set(CMAKE_FIND_LIBRARY_SUFFIXES .lib .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
+
+        # MinGW特定设置
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++ -Wl,-Bstatic")
+                # 确保链接顺序
+                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
+        endif()
+elseif(UNIX)
+        # Linux静态链接设置
+        set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+        # 添加静态链接标志
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic")
+endif()
+
 # 查找依赖库
 message(STATUS "开始查找依赖库...")
 
@@ -27,6 +55,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         add_compile_options(-Wall -Wextra -pedantic)
         if(CMAKE_BUILD_TYPE STREQUAL "Release")
                 add_compile_options(-O3)
+        endif()
+        # 静态链接标志
+        if(WIN32)
+                add_compile_options(-static)
         endif()
 else()
         message(FATAL_ERROR "不支持的编译器: ${CMAKE_CXX_COMPILER_ID}。请使用GCC或Clang。")
@@ -93,10 +125,25 @@ target_include_directories(YumeCard PRIVATE
         ${CMAKE_BINARY_DIR}/include
 )
 
-# 链接库
+# 链接库 - 确保静态链接
 target_link_libraries(YumeCard PRIVATE CURL::libcurl)
 target_link_libraries(YumeCard PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(YumeCard PRIVATE ZLIB::ZLIB)
+
+# 系统库静态链接
+if(WIN32)
+        target_link_libraries(YumeCard PRIVATE
+                ws2_32 wldap32 crypt32 normaliz winmm
+                -static-libgcc -static-libstdc++ -static
+        )
+endif()
+
+if(UNIX AND NOT APPLE)
+        target_link_libraries(YumeCard PRIVATE
+                pthread dl rt
+                -static-libgcc -static-libstdc++
+        )
+endif()
 
 # 输出构建信息
 message(STATUS "=== YumeCard 构建配置 ===")
