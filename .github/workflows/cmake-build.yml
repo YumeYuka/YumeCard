@@ -33,28 +33,22 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ env.VCPKG_ROOT }}
-          # vcpkgTriplet: ${{ matrix.vcpkg_triplet }} # Removed invalid input
-          # vcpkgGitCommitId: "\'HEAD\'" # Removed, use default latest
-          runVcpkgInstall: true # Let the action handle vcpkg install based on triplet
+          runVcpkgInstall: false # Changed to false
 
       - name: Install dependencies (Linux)
         if: runner.os == '''Linux'''
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build # Or make
-          # The runVcpkgInstall: true in the setup step should handle this.
-          # If not, uncomment and adjust the following:
-          # ${{ env.VCPKG_ROOT }}/vcpkg install curl zlib nlohmann-json --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
+          sudo apt-get install -y ninja-build curl ca-certificates git tar zip unzip pkg-config
+          cd ${{ github.workspace }}
+          ${{ env.VCPKG_ROOT }}/vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }} --verbose
         shell: bash
 
       - name: Install dependencies (Windows)
         if: runner.os == '''Windows'''
-        # The runVcpkgInstall: true in the setup step should handle this.
-        # If not, uncomment and adjust the following:
-        # run: |
-        #   ${{ env.VCPKG_ROOT }}\\vcpkg install curl zlib nlohmann-json --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
-        # shell: pwsh
-        run: echo "Dependencies should be installed by run-vcpkg step"
+        run: |
+          cd ${{ github.workspace }}
+          ${{ env.VCPKG_ROOT }}\vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }} --verbose
         shell: pwsh
 
       - name: Configure CMake (Linux)
