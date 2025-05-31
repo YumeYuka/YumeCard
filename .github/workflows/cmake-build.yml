@@ -82,12 +82,29 @@ jobs:
           & "${{ env.VCPKG_ROOT }}\vcpkg.exe" install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: pwsh
 
-      - name: Debug vcpkg installation
+      - name: Debug vcpkg installation (Linux)
+        if: runner.os == 'Linux'
         run: |
           echo "VCPKG_ROOT: ${{ env.VCPKG_ROOT }}"
           echo "VCPKG_DEFAULT_TRIPLET: ${{ env.VCPKG_DEFAULT_TRIPLET }}"
-          ls -la ${{ env.VCPKG_ROOT }}/installed/ || dir "${{ env.VCPKG_ROOT }}\installed\" || echo "No installed directory found"
+          if [ -d "${{ env.VCPKG_ROOT }}/installed/" ]; then
+            ls -la "${{ env.VCPKG_ROOT }}/installed/"
+          else
+            echo "No installed directory found"
+          fi
         shell: bash
+
+      - name: Debug vcpkg installation (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Write-Host "VCPKG_ROOT: ${{ env.VCPKG_ROOT }}"
+          Write-Host "VCPKG_DEFAULT_TRIPLET: ${{ env.VCPKG_DEFAULT_TRIPLET }}"
+          if (Test-Path "${{ env.VCPKG_ROOT }}\installed\") {
+            Get-ChildItem "${{ env.VCPKG_ROOT }}\installed\"
+          } else {
+            Write-Host "No installed directory found"
+          }
+        shell: pwsh
 
       - name: Configure CMake
         run: |
