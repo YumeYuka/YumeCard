@@ -220,43 +220,44 @@ jobs:
           [ -d "config" ] && cp -r config "$PACKAGE_DIR/" || echo "config directory not found"
           
           # Create version file
-          cat > "$PACKAGE_DIR/VERSION.txt" << EOF
-YumeCard ${{ steps.get_version.outputs.VERSION }} for Linux x64
-Build Date: $(date)
-Platform: Linux x64
-Static Linking: Yes
-Commit: ${{ github.sha }}
-EOF
+          cat > "$PACKAGE_DIR/VERSION.txt" << 'VERSIONEOF'
+          YumeCard ${{ steps.get_version.outputs.VERSION }} for Linux x64
+          Build Date: $(date)
+          Platform: Linux x64
+          Static Linking: Yes
+          Commit: ${{ github.sha }}
+          VERSIONEOF
           
           # Create install guide
-          cat > "$PACKAGE_DIR/INSTALL.txt" << 'EOF'
-# YumeCard Installation Guide
+          cat > "$PACKAGE_DIR/INSTALL.txt" << 'INSTALLEOF'
+          # YumeCard Installation Guide
 
-## Requirements
-- No additional dependencies required (statically linked)
-- Node.js (for web-related features, if needed)
+          ## Requirements
+          - No additional dependencies required (statically linked)
+          - Node.js (for web-related features, if needed)
 
-## Installation Steps
-1. Extract this archive to your desired location
-2. Make the executable file executable: chmod +x YumeCard
-3. Run: ./YumeCard
+          ## Installation Steps
+          1. Extract this archive to your desired location
+          2. Make the executable file executable: chmod +x YumeCard
+          3. Run: ./YumeCard
 
-## Directory Structure
-- YumeCard: Main executable
-- Style/: UI styles and themes
-- config/: Configuration files
-- package.json: Node.js dependencies information
-- README.md: Project documentation
-- LICENSE: License information
+          ## Directory Structure
+          - YumeCard: Main executable
+          - Style/: UI styles and themes
+          - config/: Configuration files
+          - package.json: Node.js dependencies information
+          - README.md: Project documentation
+          - LICENSE: License information
 
-## Troubleshooting
-- If you encounter permission issues, make sure the executable has proper permissions
-- For configuration, check the config/ directory
-EOF
+          ## Troubleshooting
+          - If you encounter permission issues, make sure the executable has proper permissions
+          - For configuration, check the config/ directory
+          INSTALLEOF
         shell: bash
 
       - name: Copy files to package (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           $PACKAGE_DIR = "package\YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}"
           
@@ -274,16 +275,17 @@ EOF
           if (Test-Path "config") { Copy-Item "config" "$PACKAGE_DIR\" -Recurse }
           
           # Create version file
-          @"
+          $versionContent = @"
 YumeCard ${{ steps.get_version.outputs.VERSION }} for Windows x64
 Build Date: $(Get-Date)
 Platform: Windows x64
 Static Linking: Yes
 Commit: ${{ github.sha }}
-"@ | Out-File -FilePath "$PACKAGE_DIR\VERSION.txt" -Encoding UTF8
+"@
+          $versionContent | Out-File -FilePath "$PACKAGE_DIR\VERSION.txt" -Encoding UTF8
           
           # Create install guide
-          @"
+          $installContent = @"
 # YumeCard Installation Guide
 
 ## Requirements
@@ -305,8 +307,8 @@ Commit: ${{ github.sha }}
 ## Troubleshooting
 - If Windows Defender blocks the executable, add it to exclusions
 - For configuration, check the config/ directory
-"@ | Out-File -FilePath "$PACKAGE_DIR\INSTALL.txt" -Encoding UTF8
-        shell: pwsh
+"@
+          $installContent | Out-File -FilePath "$PACKAGE_DIR\INSTALL.txt" -Encoding UTF8
 
       - name: Create archive (Linux)
         if: runner.os == 'Linux'
@@ -390,15 +392,4 @@ Commit: ${{ github.sha }}
             ### 📋 Installation
             1. Download the appropriate package for your platform
             2. Extract the archive to your desired location
-            3. Follow the instructions in INSTALL.txt
-            4. Run the executable
-            
-            ### ⚠️ Requirements
-            - No additional dependencies required (statically linked)
-            - Node.js recommended for web-related features
-            
-            ### 🆕 What's New
-            Check the commit history for detailed changes since the last release.
-          draft: false
-          prerelease: ${{ contains(steps.release_version.outputs.VERSION, 'beta') || contains(steps.release_version.outputs.VERSION, 'alpha') || contains(steps.release_version.outputs.VERSION, 'rc') }}
-          files: artifacts/**/*
+            3. Follow the instructions in INST
