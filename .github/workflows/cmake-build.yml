@@ -23,6 +23,9 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    env: # Add an env block at the job level for VCPKG_DEFAULT_TRIPLET
+      VCPKG_DEFAULT_TRIPLET: ${{ matrix.vcpkg_triplet }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -30,35 +33,57 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ env.VCPKG_ROOT }}
-          vcpkgTriplet: ${{ matrix.vcpkg_triplet }}
-          vcpkgGitCommitId: "'HEAD'" # Use the latest vcpkg
+          # vcpkgTriplet: ${{ matrix.vcpkg_triplet }} # Removed invalid input
+          # vcpkgGitCommitId: "\'HEAD\'" # Removed, use default latest
+          runVcpkgInstall: true # Let the action handle vcpkg install based on triplet
 
       - name: Install dependencies (Linux)
         if: runner.os == '''Linux'''
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build # Or make
-          ${{ env.VCPKG_ROOT }}/vcpkg install curl zlib nlohmann-json --triplet ${{ matrix.vcpkg_triplet }}
+          # The runVcpkgInstall: true in the setup step should handle this.
+          # If not, uncomment and adjust the following:
+          # ${{ env.VCPKG_ROOT }}/vcpkg install curl zlib nlohmann-json --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: bash
 
       - name: Install dependencies (Windows)
         if: runner.os == '''Windows'''
-        run: |
-          ${{ env.VCPKG_ROOT }}\vcpkg install curl zlib nlohmann-json --triplet ${{ matrix.vcpkg_triplet }}
+        # The runVcpkgInstall: true in the setup step should handle this.
+        # If not, uncomment and adjust the following:
+        # run: |
+        #   ${{ env.VCPKG_ROOT }}\\vcpkg install curl zlib nlohmann-json --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
+        # shell: pwsh
+        run: echo "Dependencies should be installed by run-vcpkg step"
         shell: pwsh
 
-      - name: Configure CMake
+      - name: Configure CMake (Linux)
+        if: runner.os == '''Linux'''
         run: |
           cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake \
-            -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }} \
-            -G "Ninja" # Or "MinGW Makefiles" on Windows if not using Ninja
-        shell: bash # Use bash for consistency, works on Windows with Git Bash
+            -G "Ninja"
+        shell: bash
 
-      - name: Build
+      - name: Configure CMake (Windows)
+        if: runner.os == '''Windows'''
+        run: |
+          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake `
+            -G "Ninja" # Or "MinGW Makefiles"
+        shell: pwsh
+
+      - name: Build (Linux)
+        if: runner.os == '''Linux'''
         run: cmake --build ${{ github.workspace }}/build --config Release
         shell: bash
+
+      - name: Build (Windows)
+        if: runner.os == '''Windows'''
+        run: cmake --build ${{ github.workspace }}/build --config Release
+        shell: pwsh
 
     # Optional: Upload artifact (e.g., the executable)
     # - name: Upload Artifact
