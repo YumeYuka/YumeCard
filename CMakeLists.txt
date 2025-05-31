@@ -11,25 +11,25 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(WIN32)
         # 设置静态运行时库
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
 
         # 优先查找静态库
         set(CMAKE_FIND_LIBRARY_SUFFIXES .lib .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
 
         # MinGW特定设置
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++ -Wl,-Bstatic")
-                # 确保链接顺序
-                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
+                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
         endif()
 elseif(UNIX)
         # Linux静态链接设置
         set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
-        # 添加静态链接标志
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic")
+        # 使用更简单的静态链接配置
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+        # 设置POSITION_INDEPENDENT_CODE为OFF以支持静态链接
+        set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
 endif()
+
+# 全局设置优先使用静态库
+set(CMAKE_FIND_LIBRARY_SUFFIXES .a .lib ${CMAKE_FIND_LIBRARY_SUFFIXES})
 
 # 查找依赖库
 message(STATUS "开始查找依赖库...")
@@ -56,10 +56,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         if(CMAKE_BUILD_TYPE STREQUAL "Release")
                 add_compile_options(-O3)
         endif()
-        # 静态链接标志
-        if(WIN32)
-                add_compile_options(-static)
-        endif()
+        # 移除可能有问题的静态编译选项
 else()
         message(FATAL_ERROR "不支持的编译器: ${CMAKE_CXX_COMPILER_ID}。请使用GCC或Clang。")
 endif()
@@ -134,15 +131,17 @@ target_link_libraries(YumeCard PRIVATE ZLIB::ZLIB)
 if(WIN32)
         target_link_libraries(YumeCard PRIVATE
                 ws2_32 wldap32 crypt32 normaliz winmm
-                -static-libgcc -static-libstdc++ -static
         )
+        # MinGW静态链接
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+                target_link_options(YumeCard PRIVATE -static -static-libgcc -static-libstdc++)
+        endif()
 endif()
 
 if(UNIX AND NOT APPLE)
-        target_link_libraries(YumeCard PRIVATE
-                pthread dl rt
-                -static-libgcc -static-libstdc++
-        )
+        target_link_libraries(YumeCard PRIVATE pthread dl)
+        # 尝试静态链接运行时库
+        target_link_options(YumeCard PRIVATE -static-libgcc -static-libstdc++)
 endif()
 
 # 输出构建信息
