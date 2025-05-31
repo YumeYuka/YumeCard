@@ -14,84 +14,71 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        architecture: [x64] # Can be extended to x86, arm64 if needed and supported by vcpkg triplets
+        architecture: [x64]
         include:
           - os: ubuntu-latest
-            vcpkg_triplet: x64-linux # Changed from x64-linux-static
+            vcpkg_triplet: x64-linux
           - os: windows-latest
-            vcpkg_triplet: x64-mingw-static # Or x64-windows-static if using MSVC
+            vcpkg_triplet: x64-mingw-static
 
     runs-on: ${{ matrix.os }}
 
-    env: # Add an env block at the job level for VCPKG_DEFAULT_TRIPLET
+    env:
       VCPKG_DEFAULT_TRIPLET: ${{ matrix.vcpkg_triplet }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Initialize vcpkg submodule
-        run: |
-          git submodule update --init --recursive
-
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgDirectory: ${{ env.VCPKG_ROOT }}
-          runVcpkgInstall: false # Changed to false
-
-      - name: Install dependencies (Linux)
+      - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build curl ca-certificates git tar zip unzip pkg-config
-          cd ${{ github.workspace }}
-          ${{ env.VCPKG_ROOT }}/vcpkg --verbose install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
+          sudo apt-get install -y ninja-build curl ca-certificates git tar zip unzip pkg-config build-essential
         shell: bash
 
-      - name: Install dependencies (Windows)
+      - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          cd ${{ github.workspace }}
-          $arguments = @(
-            "--verbose", # Ensured --verbose is present
-            "install",
-            "--triplet",
-            "${{ env.VCPKG_DEFAULT_TRIPLET }}"
-          )
-          Start-Process -FilePath "${{ env.VCPKG_ROOT }}\vcpkg.exe" -ArgumentList $arguments -Wait -NoNewWindow
+          choco install ninja
         shell: pwsh
 
-      - name: Configure CMake (Linux)
+      - name: Setup vcpkg (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake \
-            -G "Ninja"
+          git clone https://github.com/Microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+          ${{ env.VCPKG_ROOT }}/bootstrap-vcpkg.sh
         shell: bash
 
-      - name: Configure CMake (Windows)
+      - name: Setup vcpkg (Windows)
         if: runner.os == 'Windows'
         run: |
-          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake `
-            -G "Ninja" # Or "MinGW Makefiles"
+          git clone https://github.com/Microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+          & "${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat"
         shell: pwsh
 
-      - name: Build (Linux)
+      - name: Install vcpkg packages (Linux)
         if: runner.os == 'Linux'
-        run: cmake --build ${{ github.workspace }}/build --config Release
+        run: |
+          ${{ env.VCPKG_ROOT }}/vcpkg install curl zlib nlohmann-json --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: bash
 
-      - name: Build (Windows)
+      - name: Install vcpkg packages (Windows)
         if: runner.os == 'Windows'
-        run: cmake --build ${{ github.workspace }}/build --config Release
+        run: |
+          & "${{ env.VCPKG_ROOT }}\vcpkg.exe" install curl zlib nlohmann-json --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: pwsh
 
-    # Optional: Upload artifact (e.g., the executable)
-    # - name: Upload Artifact
-    #   uses: actions/upload-artifact@v3
-    #   with:
-    #     name: YumeCard-${{ matrix.os }}-${{ matrix.architecture }}
-    #     path: ${{ github.workspace }}/build/YumeCard* # Adjust path and executable name as needed
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja"
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config Release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YumeCard-${{ matrix.os }}-${{ matrix.architecture }}
+          path: |
+            ${{ github.workspace }}/build/YumeCard*
+            ${{ github.workspace }}/build/*.exe

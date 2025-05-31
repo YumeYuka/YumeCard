@@ -15,7 +15,7 @@ if(WIN32)
         set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "Vcpkg target triplet for Windows")
         # Add any Windows-specific CMake settings here
 elseif(UNIX AND NOT APPLE)
-        set(VCPKG_TARGET_TRIPLET "x64-linux-static" CACHE STRING "Vcpkg target triplet for Linux")
+        set(VCPKG_TARGET_TRIPLET "x64-linux" CACHE STRING "Vcpkg target triplet for Linux")
         # Add any Linux-specific CMake settings here
 else()
         message(WARNING "Unsupported platform for VCPKG_TARGET_TRIPLET. Defaulting to x64-mingw-static.")
