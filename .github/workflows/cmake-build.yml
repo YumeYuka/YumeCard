@@ -1,10 +1,7 @@
 name: CMake Build for Windows and Linux
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+    workflow_dispatch:
 
 env:
   VCPKG_ROOT: ${{ github.workspace }}/vcpkg

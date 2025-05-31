@@ -1,17 +1,12 @@
 name: Release Build and Package
 
 on:
-  push:
-    tags:
-      - 'v*'
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Tag name for release'
-        required: false
-        default: ''
+    workflow_dispatch:
+        inputs:
+            tag_name:
+                description: 'Tag name for release'
+                required: false
+                default: ''
 
 env:
   VCPKG_ROOT: ${{ github.workspace }}/vcpkg
