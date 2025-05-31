@@ -36,7 +36,7 @@ jobs:
           runVcpkgInstall: false # Changed to false
 
       - name: Install dependencies (Linux)
-        if: runner.os == '''Linux'''
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build curl ca-certificates git tar zip unzip pkg-config
@@ -45,14 +45,14 @@ jobs:
         shell: bash
 
       - name: Install dependencies (Windows)
-        if: runner.os == '''Windows'''
+        if: runner.os == 'Windows'
         run: |
           cd ${{ github.workspace }}
-          ${{ env.VCPKG_ROOT }}\vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }} --verbose
+          ${{ env.VCPKG_ROOT }}\\vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }} --verbose
         shell: pwsh
 
       - name: Configure CMake (Linux)
-        if: runner.os == '''Linux'''
+        if: runner.os == 'Linux'
         run: |
           cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} \
             -DCMAKE_BUILD_TYPE=Release \
@@ -61,7 +61,7 @@ jobs:
         shell: bash
 
       - name: Configure CMake (Windows)
-        if: runner.os == '''Windows'''
+        if: runner.os == 'Windows'
         run: |
           cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} `
             -DCMAKE_BUILD_TYPE=Release `
@@ -70,12 +70,12 @@ jobs:
         shell: pwsh
 
       - name: Build (Linux)
-        if: runner.os == '''Linux'''
+        if: runner.os == 'Linux'
         run: cmake --build ${{ github.workspace }}/build --config Release
         shell: bash
 
       - name: Build (Windows)
-        if: runner.os == '''Windows'''
+        if: runner.os == 'Windows'
         run: cmake --build ${{ github.workspace }}/build --config Release
         shell: pwsh
 
