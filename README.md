@@ -1,9 +1,10 @@
 # 🌙 YumeCard - GitHub 仓库订阅与提交卡片生成工具
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-YYOS-lightgrey.svg)](LICENSE)
 [![C++](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://isocpp.org/)
 [![CMake](https://img.shields.io/badge/CMake-3.16%2B-green.svg)](https://cmake.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)](#)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Linux-lightgrey.svg)](#)
 [![GitHub](https://img.shields.io/badge/GitHub-API-black.svg)](https://docs.github.com/en/rest)
 
 > 🎨 一个优雅的 GitHub 仓库监控工具，自动生成精美的提交卡片截图
