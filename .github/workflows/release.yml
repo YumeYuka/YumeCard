@@ -1,12 +1,12 @@
 name: Release Build and Package
 
 on:
-    workflow_dispatch:
-        inputs:
-            tag_name:
-                description: 'Tag name for release'
-                required: false
-                default: ''
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag name for release"
+        required: false
+        default: ""
 
 env:
   VCPKG_ROOT: ${{ github.workspace }}/vcpkg
@@ -205,20 +205,20 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           PACKAGE_DIR="package/YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}"
-          
+
           # Copy executable
           cp build/${{ matrix.executable_name }} "$PACKAGE_DIR/"
-          
+
           # Copy project files
           [ -f "README.md" ] && cp README.md "$PACKAGE_DIR/" || echo "README.md not found"
           [ -f "LICENSE" ] && cp LICENSE "$PACKAGE_DIR/" || echo "LICENSE not found"
           [ -f "package.json" ] && cp package.json "$PACKAGE_DIR/" || echo "package.json not found"
           [ -f "package-lock.json" ] && cp package-lock.json "$PACKAGE_DIR/" || echo "package-lock.json not found"
-          
+
           # Copy directories
           [ -d "Style" ] && cp -r Style "$PACKAGE_DIR/" || echo "Style directory not found"
           [ -d "config" ] && cp -r config "$PACKAGE_DIR/" || echo "config directory not found"
-          
+
           # Create version file
           cat > "$PACKAGE_DIR/VERSION.txt" << 'VERSIONEOF'
           YumeCard ${{ steps.get_version.outputs.VERSION }} for Linux x64
@@ -227,7 +227,7 @@ jobs:
           Static Linking: Yes
           Commit: ${{ github.sha }}
           VERSIONEOF
-          
+
           # Create install guide
           cat > "$PACKAGE_DIR/INSTALL.txt" << 'INSTALLEOF'
           # YumeCard Installation Guide
@@ -260,54 +260,25 @@ jobs:
         shell: pwsh
         run: |
           $PACKAGE_DIR = "package\YumeCard-${{ steps.get_version.outputs.VERSION }}-${{ matrix.platform_name }}"
-          
+
           # Copy executable
           Copy-Item "build\${{ matrix.executable_name }}" "$PACKAGE_DIR\"
-          
+
           # Copy project files
           if (Test-Path "README.md") { Copy-Item "README.md" "$PACKAGE_DIR\" }
           if (Test-Path "LICENSE") { Copy-Item "LICENSE" "$PACKAGE_DIR\" }
           if (Test-Path "package.json") { Copy-Item "package.json" "$PACKAGE_DIR\" }
           if (Test-Path "package-lock.json") { Copy-Item "package-lock.json" "$PACKAGE_DIR\" }
-          
+
           # Copy directories
           if (Test-Path "Style") { Copy-Item "Style" "$PACKAGE_DIR\" -Recurse }
-          if (Test-Path "config") { Copy-Item "config" "$PACKAGE_DIR\" -Recurse }
-          
-          # Create version file
-          $versionContent = @"
-YumeCard ${{ steps.get_version.outputs.VERSION }} for Windows x64
-Build Date: $(Get-Date)
-Platform: Windows x64
-Static Linking: Yes
-Commit: ${{ github.sha }}
-"@
+          if (Test-Path "config") { Copy-Item "config" "$PACKAGE_DIR\" -Recurse }          # Create version file
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $versionContent = "YumeCard $version for Windows x64`nBuild Date: $(Get-Date)`nPlatform: Windows x64`nStatic Linking: Yes`nCommit: ${{ github.sha }}"
           $versionContent | Out-File -FilePath "$PACKAGE_DIR\VERSION.txt" -Encoding UTF8
-          
+
           # Create install guide
-          $installContent = @"
-# YumeCard Installation Guide
-
-## Requirements
-- No additional dependencies required (statically linked)
-- Node.js (for web-related features, if needed)
-
-## Installation Steps
-1. Extract this archive to your desired location
-2. Run: YumeCard.exe
-
-## Directory Structure
-- YumeCard.exe: Main executable
-- Style/: UI styles and themes
-- config/: Configuration files
-- package.json: Node.js dependencies information
-- README.md: Project documentation
-- LICENSE: License information
-
-## Troubleshooting
-- If Windows Defender blocks the executable, add it to exclusions
-- For configuration, check the config/ directory
-"@
+          $installContent = "# YumeCard Installation Guide`n`n## Requirements`n- No additional dependencies required (statically linked)`n- Node.js (for web-related features, if needed)`n`n## Installation Steps`n1. Extract this archive to your desired location`n2. Run: YumeCard.exe`n`n## Directory Structure`n- YumeCard.exe: Main executable`n- Style/: UI styles and themes`n- config/: Configuration files`n- package.json: Node.js dependencies information`n- README.md: Project documentation`n- LICENSE: License information`n`n## Troubleshooting`n- If Windows Defender blocks the executable, add it to exclusions`n- For configuration, check the config/ directory"
           $installContent | Out-File -FilePath "$PACKAGE_DIR\INSTALL.txt" -Encoding UTF8
 
       - name: Create archive (Linux)
@@ -345,7 +316,7 @@ Commit: ${{ github.sha }}
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != ''
     needs: [package] # 依赖于 package 作业准备好工件。
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 准备发布信息
         id: release_info
@@ -376,14 +347,14 @@ Commit: ${{ github.sha }}
           name: YumeCard ${{ steps.release_info.outputs.VERSION }}
           body: |
             ## YumeCard ${{ steps.release_info.outputs.VERSION }}
-            
+
             发布于: ${{ steps.release_info.outputs.RELEASE_DATE }}
             提交: ${{ github.sha }} <!-- 工作流触发提交的 SHA -->
 
             ### 📦 下载
             - **Linux x64**: `YumeCard-${{ steps.release_info.outputs.VERSION }}-linux-x64.tar.gz`
             - **Windows x64**: `YumeCard-${{ steps.release_info.outputs.VERSION }}-windows-x64.zip`
-            
+
             ### 🔧 构建信息
             - 静态链接: Yes
             - C++ 标准: C++26 
@@ -396,17 +367,17 @@ Commit: ${{ github.sha }}
             - config 目录 (配置文件)
             - Node.js 文件 (package.json, package-lock.json)
             - 文档 (README.md, LICENSE, INSTALL.txt, VERSION.txt)
-            
+
             ### 📋 安装
             1. 下载适用于您平台的相应包
             2. 将存档解压缩到您期望的位置
             3. 按照 INSTALL.txt 中的说明进行操作
             4. 运行可执行文件
-            
+
             ### ⚠️ 要求
             - 无需其他依赖项 (静态链接)
             - 建议使用 Node.js 以支持与 Web 相关的功能
-            
+
             ### 🆕 新增内容
             查看与标签 ${{ steps.release_info.outputs.VERSION }} 相关的提交历史以获取详细更改。
           draft: false

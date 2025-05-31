@@ -83,7 +83,7 @@ void printHelp() {
     std::cout << "  monitor [interval]           - 开始监控所有仓库 (默认每10分钟)" << std::endl;
     std::cout << "  set-token <token>            - 设置GitHub API访问令牌" << std::endl;
     std::cout << "  list                         - 列出所有已订阅的仓库" << std::endl;
-    std::cout << "  test-screenshot              - 测试截图生成功能" << std::endl;
+    std::cout << "  test-screenshot              - 使用测试数据生成提交卡片截图" << std::endl;
     std::cout << "  system-info                  - 显示系统信息和兼容性检查" << std::endl;
     std::cout << "  diagnostic                   - 生成诊断报告" << std::endl;
     std::cout << "  version                      - 显示版本信息" << std::endl;
@@ -278,23 +278,19 @@ int main(int argc, char* argv[]) {
         listRepositories(config.getConfigPath());
         return 0;
     } else if (command == "test-screenshot") { // New command handling
-        std::map<std::string, std::string> vars;
-        vars["title"]       = "Test Card";
-        vars["description"] = "This is a test screenshot from YumeCard.";
-        vars["stars"]       = "123";
-        vars["forks"]       = "45";
-        vars["language"]    = "C++";
-        vars["repo_url"]    = "https://github.com/YumeYuka/YumeCard";
-        vars["avatar_url"] =
-            "https://avatars.githubusercontent.com/u/YOUR_USER_ID?v=4"; // Replace with actual URL or
-                                                                        // placeholder
-        vars["bg_image"] = screenshotManager.getRandomBackground();
+        // 使用 GitHubSubscriber 的测试截图功能，生成包含测试数据的截图
+        Yume::GitHubSubscriber subscriber(config.getConfigPath(), config.styleDir, config.outputDir);
 
-        std::string htmlPath = config.outputDir + "/test_card.html";
-        std::string pngPath  = config.outputDir + "/test_card.png";
+        std::cout << "正在使用测试数据生成截图..." << std::endl;
+        std::cout << "使用样式目录: " << config.styleDir << std::endl;
+        std::cout << "输出图像目录: " << config.outputDir << std::endl;
 
-        if (screenshotManager.generateTemplate(config.styleDir + "/template.html", vars, htmlPath))
-            screenshotManager.takeScreenshot(htmlPath, pngPath);
+        if (subscriber.testScreenshot()) {
+            std::cout << "测试截图生成成功!" << std::endl;
+        } else {
+            std::cerr << "测试截图生成失败!" << std::endl;
+            return 1;
+        }
     } else if (command == "system-info") {
         systemInfoManager.displaySystemInfo(); // Corrected: Call method on the instance
     } else if (command == "diagnostic" && args.size() >= 2) {
