@@ -1,37 +1,20 @@
 cmake_minimum_required(VERSION 3.16)
 
-# 设置vcpkg triplet和工具链文件
-if(DEFINED ENV{VCPKG_ROOT} AND EXISTS "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-                CACHE STRING "Vcpkg toolchain file")
-elseif(EXISTS "C:/tool/vcpkg/scripts/buildsystems/vcpkg.cmake") # Fallback for local Windows dev
-        set(CMAKE_TOOLCHAIN_FILE "C:/tool/vcpkg/scripts/buildsystems/vcpkg.cmake"
-                CACHE STRING "Vcpkg toolchain file")
-else()
-        message(WARNING "vcpkg.cmake not found. Please set VCPKG_ROOT environment variable or update the path.")
-endif()
-
-if(WIN32)
-        set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "Vcpkg target triplet for Windows")
-        # Add any Windows-specific CMake settings here
-elseif(UNIX AND NOT APPLE)
-        set(VCPKG_TARGET_TRIPLET "x64-linux" CACHE STRING "Vcpkg target triplet for Linux")
-        # Add any Linux-specific CMake settings here
-else()
-        message(WARNING "Unsupported platform for VCPKG_TARGET_TRIPLET. Defaulting to x64-mingw-static.")
-        set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "Vcpkg target triplet")
-endif()
-
-# 禁用vcpkg的manifest模式
-set(VCPKG_MANIFEST_MODE OFF CACHE BOOL "")
-
 # 设置项目名称和版本
 project(YumeCard VERSION 1.0.0 LANGUAGES CXX)
 
 # 查找依赖库
+message(STATUS "开始查找依赖库...")
+
 find_package(ZLIB REQUIRED)
+message(STATUS "ZLIB found: ${ZLIB_FOUND}")
+
 find_package(CURL CONFIG REQUIRED)
+message(STATUS "CURL found: ${CURL_FOUND}")
+message(STATUS "CURL_LIBRARIES: ${CURL_LIBRARIES}")
+
 find_package(nlohmann_json CONFIG REQUIRED)
+message(STATUS "nlohmann_json found: ${nlohmann_json_FOUND}")
 
 # 配置版本文件
 configure_file(

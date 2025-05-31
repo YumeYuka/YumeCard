@@ -25,9 +25,12 @@ jobs:
 
     env:
       VCPKG_DEFAULT_TRIPLET: ${{ matrix.vcpkg_triplet }}
+      VCPKG_FEATURE_FLAGS: manifests,registries,versions
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Cache vcpkg
         uses: actions/cache@v4
@@ -74,6 +77,8 @@ jobs:
           cd ${{ github.workspace }}
           ${{ env.VCPKG_ROOT }}/vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: bash
+        env:
+          VCPKG_FORCE_SYSTEM_BINARIES: 1
 
       - name: Install vcpkg packages (Windows)
         if: runner.os == 'Windows'
@@ -92,8 +97,12 @@ jobs:
             ls -la "${{ env.VCPKG_ROOT }}/installed/"
             echo "=== Triplet directory ==="
             ls -la "${{ env.VCPKG_ROOT }}/installed/${{ env.VCPKG_DEFAULT_TRIPLET }}/" || echo "Triplet directory not found"
+            echo "=== Share directory ==="
+            ls -la "${{ env.VCPKG_ROOT }}/installed/${{ env.VCPKG_DEFAULT_TRIPLET }}/share/" || echo "Share directory not found"
             echo "=== CMake files ==="
             find "${{ env.VCPKG_ROOT }}/installed/${{ env.VCPKG_DEFAULT_TRIPLET }}/share/" -name "*curl*" -o -name "*CURL*" 2>/dev/null || echo "No CURL cmake files found"
+            echo "=== vcpkg.json content ==="
+            cat vcpkg.json || echo "No vcpkg.json found"
           else
             echo "No installed directory found"
           fi
@@ -113,6 +122,12 @@ jobs:
             } else {
               Write-Host "Triplet directory not found"
             }
+            Write-Host "=== vcpkg.json content ==="
+            if (Test-Path "vcpkg.json") {
+              Get-Content "vcpkg.json"
+            } else {
+              Write-Host "No vcpkg.json found"
+            }
           } else {
             Write-Host "No installed directory found"
           }
@@ -120,7 +135,9 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja" -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }} -DCMAKE_PREFIX_PATH="${{ env.VCPKG_ROOT }}/installed/${{ env.VCPKG_DEFAULT_TRIPLET }}"
+          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja" -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}
+        env:
+          VCPKG_FORCE_SYSTEM_BINARIES: 1
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config Release
