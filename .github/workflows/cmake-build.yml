@@ -1,0 +1,68 @@
+name: CMake Build for Windows and Linux
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        architecture: [x64] # Can be extended to x86, arm64 if needed and supported by vcpkg triplets
+        include:
+          - os: ubuntu-latest
+            vcpkg_triplet: x64-linux-static
+          - os: windows-latest
+            vcpkg_triplet: x64-mingw-static # Or x64-windows-static if using MSVC
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ env.VCPKG_ROOT }}
+          vcpkgTriplet: ${{ matrix.vcpkg_triplet }}
+          vcpkgGitCommitId: "'HEAD'" # Use the latest vcpkg
+
+      - name: Install dependencies (Linux)
+        if: runner.os == '''Linux'''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build # Or make
+          ${{ env.VCPKG_ROOT }}/vcpkg install curl zlib nlohmann-json --triplet ${{ matrix.vcpkg_triplet }}
+        shell: bash
+
+      - name: Install dependencies (Windows)
+        if: runner.os == '''Windows'''
+        run: |
+          ${{ env.VCPKG_ROOT }}\vcpkg install curl zlib nlohmann-json --triplet ${{ matrix.vcpkg_triplet }}
+        shell: pwsh
+
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }} \
+            -G "Ninja" # Or "MinGW Makefiles" on Windows if not using Ninja
+        shell: bash # Use bash for consistency, works on Windows with Git Bash
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config Release
+        shell: bash
+
+    # Optional: Upload artifact (e.g., the executable)
+    # - name: Upload Artifact
+    #   uses: actions/upload-artifact@v3
+    #   with:
+    #     name: YumeCard-${{ matrix.os }}-${{ matrix.architecture }}
+    #     path: ${{ github.workspace }}/build/YumeCard* # Adjust path and executable name as needed

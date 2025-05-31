@@ -1,19 +1,32 @@
 cmake_minimum_required(VERSION 3.16)
 
 # 设置vcpkg triplet和工具链文件
-set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "Vcpkg target triplet")
-set(CMAKE_TOOLCHAIN_FILE "C:/tool/vcpkg/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "Vcpkg toolchain file")
+if(DEFINED ENV{VCPKG_ROOT} AND EXISTS "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+                CACHE STRING "Vcpkg toolchain file")
+elseif(EXISTS "C:/tool/vcpkg/scripts/buildsystems/vcpkg.cmake") # Fallback for local Windows dev
+        set(CMAKE_TOOLCHAIN_FILE "C:/tool/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                CACHE STRING "Vcpkg toolchain file")
+else()
+        message(WARNING "vcpkg.cmake not found. Please set VCPKG_ROOT environment variable or update the path.")
+endif()
+
+if(WIN32)
+        set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "Vcpkg target triplet for Windows")
+        # Add any Windows-specific CMake settings here
+elseif(UNIX AND NOT APPLE)
+        set(VCPKG_TARGET_TRIPLET "x64-linux-static" CACHE STRING "Vcpkg target triplet for Linux")
+        # Add any Linux-specific CMake settings here
+else()
+        message(WARNING "Unsupported platform for VCPKG_TARGET_TRIPLET. Defaulting to x64-mingw-static.")
+        set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "Vcpkg target triplet")
+endif()
 
 # 禁用vcpkg的manifest模式
 set(VCPKG_MANIFEST_MODE OFF CACHE BOOL "")
 
 # 设置项目名称和版本
 project(YumeCard VERSION 1.0.0 LANGUAGES CXX)
-
-# 设置依赖库路径
-set(CURL_DIR "C:/tool/vcpkg/installed/x64-mingw-static/share/curl")
-set(nlohmann_json_DIR "C:/tool/vcpkg/installed/x64-mingw-static/share/nlohmann_json")
 
 # 查找依赖库
 find_package(ZLIB REQUIRED)
