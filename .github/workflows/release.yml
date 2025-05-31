@@ -1,0 +1,389 @@
+name: Release Build and Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release'
+        required: false
+        default: ''
+
+env:
+  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            vcpkg_triplet: x64-linux
+            platform_name: linux-x64
+            executable_name: YumeCard
+          - os: windows-latest
+            vcpkg_triplet: x64-mingw-static
+            platform_name: windows-x64
+            executable_name: YumeCard.exe
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      VCPKG_DEFAULT_TRIPLET: ${{ matrix.vcpkg_triplet }}
+      VCPKG_FEATURE_FLAGS: manifests,registries,versions
+
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version info
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "VERSION=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_type }}" == "tag" ]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_ROOT }}
+          key: release-vcpkg-${{ matrix.vcpkg_triplet }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            release-vcpkg-${{ matrix.vcpkg_triplet }}-
+            vcpkg-${{ matrix.vcpkg_triplet }}-
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build curl ca-certificates git tar zip unzip pkg-config build-essential
+        shell: bash
+
+      - name: Install system dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install ninja
+        shell: pwsh
+
+      - name: Setup vcpkg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          if [ ! -d "${{ env.VCPKG_ROOT }}" ]; then
+            git clone https://github.com/Microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+          fi
+          ${{ env.VCPKG_ROOT }}/bootstrap-vcpkg.sh
+        shell: bash
+
+      - name: Setup vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if (!(Test-Path "${{ env.VCPKG_ROOT }}")) {
+            git clone https://github.com/Microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+          }
+          & "${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat"
+        shell: pwsh
+
+      - name: Install vcpkg packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd ${{ github.workspace }}
+          ${{ env.VCPKG_ROOT }}/vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
+        shell: bash
+        env:
+          VCPKG_FORCE_SYSTEM_BINARIES: 1
+
+      - name: Install vcpkg packages (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd ${{ github.workspace }}
+          & "${{ env.VCPKG_ROOT }}\vcpkg.exe" install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
+        shell: pwsh
+
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja" -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }} -DVCPKG_LIBRARY_LINKAGE=static -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+        env:
+          VCPKG_FORCE_SYSTEM_BINARIES: 1
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config Release
+
+      - name: Verify build
+        run: |
+          if [ "${{ runner.os }}" == "Linux" ]; then
+            if [ -f "${{ github.workspace }}/build/${{ matrix.executable_name }}" ]; then
+              echo "✅ Build successful: ${{ matrix.executable_name }}"
+              file "${{ github.workspace }}/build/${{ matrix.executable_name }}"
+              ldd "${{ github.workspace }}/build/${{ matrix.executable_name }}" || echo "Static executable - no dynamic dependencies"
+            else
+              echo "❌ Build failed: ${{ matrix.executable_name }} not found"
+              find "${{ github.workspace }}/build/" -type f -name "*" | head -10
+              exit 1
+            fi
+          fi
+        shell: bash
+
+      - name: Verify build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if (Test-Path "${{ github.workspace }}\build\${{ matrix.executable_name }}") {
+            Write-Host "✅ Build successful: ${{ matrix.executable_name }}"
+            Get-Item "${{ github.workspace }}\build\${{ matrix.executable_name }}"
+          } else {
+            Write-Host "❌ Build failed: ${{ matrix.executable_name }} not found"
+            Get-ChildItem "${{ github.workspace }}\build\" | Select-Object -First 10
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform_name }}
+          path: ${{ github.workspace }}/build/${{ matrix.executable_name }}
+          retention-days: 1
+
+  package:
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform_name: linux-x64
+            executable_name: YumeCard
+            archive_type: tar.gz
+          - os: windows-latest
+            platform_name: windows-x64
+            executable_name: YumeCard.exe
+            archive_type: zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.platform_name }}
+          path: build/
+
+      - name: Make executable (Linux)
+        if: runner.os == 'Linux'
+        run: chmod +x build/${{ matrix.executable_name }}
+
+      - name: Create package directory (Linux)
+        if: runner.os == 'Linux'
+        run: mkdir -p package/YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}
+        shell: bash
+
+      - name: Create package directory (Windows)
+        if: runner.os == 'Windows'
+        run: New-Item -ItemType Directory -Force -Path "package\YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}"
+        shell: pwsh
+
+      - name: Copy files to package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          PACKAGE_DIR="package/YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}"
+          
+          # Copy executable
+          cp build/${{ matrix.executable_name }} "$PACKAGE_DIR/"
+          
+          # Copy project files
+          [ -f "README.md" ] && cp README.md "$PACKAGE_DIR/" || echo "README.md not found"
+          [ -f "LICENSE" ] && cp LICENSE "$PACKAGE_DIR/" || echo "LICENSE not found"
+          [ -f "package.json" ] && cp package.json "$PACKAGE_DIR/" || echo "package.json not found"
+          [ -f "package-lock.json" ] && cp package-lock.json "$PACKAGE_DIR/" || echo "package-lock.json not found"
+          
+          # Copy directories
+          [ -d "Style" ] && cp -r Style "$PACKAGE_DIR/" || echo "Style directory not found"
+          [ -d "config" ] && cp -r config "$PACKAGE_DIR/" || echo "config directory not found"
+          
+          # Create version file
+          cat > "$PACKAGE_DIR/VERSION.txt" << EOF
+YumeCard ${{ needs.build.outputs.version }} for Linux x64
+Build Date: $(date)
+Platform: Linux x64
+Static Linking: Yes
+Commit: ${{ github.sha }}
+EOF
+          
+          # Create install guide
+          cat > "$PACKAGE_DIR/INSTALL.txt" << 'EOF'
+# YumeCard Installation Guide
+
+## Requirements
+- No additional dependencies required (statically linked)
+- Node.js (for web-related features, if needed)
+
+## Installation Steps
+1. Extract this archive to your desired location
+2. Make the executable file executable: chmod +x YumeCard
+3. Run: ./YumeCard
+
+## Directory Structure
+- YumeCard: Main executable
+- Style/: UI styles and themes
+- config/: Configuration files
+- package.json: Node.js dependencies information
+- README.md: Project documentation
+- LICENSE: License information
+
+## Troubleshooting
+- If you encounter permission issues, make sure the executable has proper permissions
+- For configuration, check the config/ directory
+EOF
+        shell: bash
+
+      - name: Copy files to package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $PACKAGE_DIR = "package\YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}"
+          
+          # Copy executable
+          Copy-Item "build\${{ matrix.executable_name }}" "$PACKAGE_DIR\"
+          
+          # Copy project files
+          if (Test-Path "README.md") { Copy-Item "README.md" "$PACKAGE_DIR\" }
+          if (Test-Path "LICENSE") { Copy-Item "LICENSE" "$PACKAGE_DIR\" }
+          if (Test-Path "package.json") { Copy-Item "package.json" "$PACKAGE_DIR\" }
+          if (Test-Path "package-lock.json") { Copy-Item "package-lock.json" "$PACKAGE_DIR\" }
+          
+          # Copy directories
+          if (Test-Path "Style") { Copy-Item "Style" "$PACKAGE_DIR\" -Recurse }
+          if (Test-Path "config") { Copy-Item "config" "$PACKAGE_DIR\" -Recurse }
+          
+          # Create version file
+          @"
+YumeCard ${{ needs.build.outputs.version }} for Windows x64
+Build Date: $(Get-Date)
+Platform: Windows x64
+Static Linking: Yes
+Commit: ${{ github.sha }}
+"@ | Out-File -FilePath "$PACKAGE_DIR\VERSION.txt" -Encoding UTF8
+          
+          # Create install guide
+          @"
+# YumeCard Installation Guide
+
+## Requirements
+- No additional dependencies required (statically linked)
+- Node.js (for web-related features, if needed)
+
+## Installation Steps
+1. Extract this archive to your desired location
+2. Run: YumeCard.exe
+
+## Directory Structure
+- YumeCard.exe: Main executable
+- Style/: UI styles and themes
+- config/: Configuration files
+- package.json: Node.js dependencies information
+- README.md: Project documentation
+- LICENSE: License information
+
+## Troubleshooting
+- If Windows Defender blocks the executable, add it to exclusions
+- For configuration, check the config/ directory
+"@ | Out-File -FilePath "$PACKAGE_DIR\INSTALL.txt" -Encoding UTF8
+        shell: pwsh
+
+      - name: Create archive (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd package
+          tar -czf YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.tar.gz YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}/
+          echo "ASSET_PATH=package/YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_NAME=YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.tar.gz" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd package
+          Compress-Archive -Path "YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}" -DestinationPath "YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.zip"
+          echo "ASSET_PATH=package\YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.zip" >> $env:GITHUB_ENV
+          echo "ASSET_NAME=YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}.zip" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: YumeCard-${{ needs.build.outputs.version }}-${{ matrix.platform_name }}
+          path: ${{ env.ASSET_PATH }}
+          retention-days: 30
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: [build, package]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find artifacts/ -type f -name "*.tar.gz" -o -name "*.zip"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.build.outputs.version }}
+          name: YumeCard ${{ needs.build.outputs.version }}
+          body: |
+            ## YumeCard ${{ needs.build.outputs.version }}
+            
+            ### 📦 Downloads
+            - **Linux x64**: `YumeCard-${{ needs.build.outputs.version }}-linux-x64.tar.gz`
+            - **Windows x64**: `YumeCard-${{ needs.build.outputs.version }}-windows-x64.zip`
+            
+            ### 🔧 Build Information
+            - Build Date: ${{ github.event.head_commit.timestamp }}
+            - Commit: ${{ github.sha }}
+            - Static Linking: Yes
+            - C++ Standard: C++26
+            
+            ### 📁 Package Contents
+            - Main executable (YumeCard/YumeCard.exe)
+            - Style directory (UI themes and styles)
+            - config directory (configuration files)
+            - Node.js files (package.json, package-lock.json)
+            - Documentation (README.md, LICENSE, INSTALL.txt, VERSION.txt)
+            
+            ### 📋 Installation
+            1. Download the appropriate package for your platform
+            2. Extract the archive to your desired location
+            3. Follow the instructions in INSTALL.txt
+            4. Run the executable
+            
+            ### ⚠️ Requirements
+            - No additional dependencies required (statically linked)
+            - Node.js recommended for web-related features
+            
+            ### 🆕 What's New
+            Check the commit history for detailed changes since the last release.
+          draft: false
+          prerelease: ${{ contains(needs.build.outputs.version, 'beta') || contains(needs.build.outputs.version, 'alpha') || contains(needs.build.outputs.version, 'rc') }}
+          files: artifacts/**/*.tar.gz,artifacts/**/*.zip

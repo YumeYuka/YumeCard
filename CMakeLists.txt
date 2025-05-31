@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.16)
 project(YumeCard VERSION 1.0.0 LANGUAGES CXX)
 
 # 设置C++标准
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 强制静态链接 - 更强的配置
