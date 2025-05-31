@@ -1,6 +1,6 @@
 {
   "name": "yumecard",
   "version-string": "1.0.0",
-  "builtin-baseline": "0d6c1ece385c4c9f4f7ba977f03f1b89f39991a9",
+  "builtin-baseline": "0e9a6e8a89a1100a99f0e2961433910019b90809",
   "dependencies": ["curl", "zlib", "nlohmann-json"]
 }
