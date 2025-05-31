@@ -41,14 +41,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build curl ca-certificates git tar zip unzip pkg-config
           cd ${{ github.workspace }}
-          ${{ env.VCPKG_ROOT }}/vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }} --verbose
+          ${{ env.VCPKG_ROOT }}/vcpkg --verbose install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: bash
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
           cd ${{ github.workspace }}
-          ${{ env.VCPKG_ROOT }}\\vcpkg install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }} --verbose
+          ${{ env.VCPKG_ROOT }}\\vcpkg --verbose install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
         shell: pwsh
 
       - name: Configure CMake (Linux)
