@@ -1,0 +1,5 @@
+{
+  "name": "yumecard",
+  "version-string": "1.0.0",
+  "dependencies": ["curl", "zlib", "nlohmann-json"]
+}
