@@ -88,7 +88,12 @@ jobs:
           echo "VCPKG_ROOT: ${{ env.VCPKG_ROOT }}"
           echo "VCPKG_DEFAULT_TRIPLET: ${{ env.VCPKG_DEFAULT_TRIPLET }}"
           if [ -d "${{ env.VCPKG_ROOT }}/installed/" ]; then
+            echo "=== Installed packages ==="
             ls -la "${{ env.VCPKG_ROOT }}/installed/"
+            echo "=== Triplet directory ==="
+            ls -la "${{ env.VCPKG_ROOT }}/installed/${{ env.VCPKG_DEFAULT_TRIPLET }}/" || echo "Triplet directory not found"
+            echo "=== CMake files ==="
+            find "${{ env.VCPKG_ROOT }}/installed/${{ env.VCPKG_DEFAULT_TRIPLET }}/share/" -name "*curl*" -o -name "*CURL*" 2>/dev/null || echo "No CURL cmake files found"
           else
             echo "No installed directory found"
           fi
@@ -100,7 +105,14 @@ jobs:
           Write-Host "VCPKG_ROOT: ${{ env.VCPKG_ROOT }}"
           Write-Host "VCPKG_DEFAULT_TRIPLET: ${{ env.VCPKG_DEFAULT_TRIPLET }}"
           if (Test-Path "${{ env.VCPKG_ROOT }}\installed\") {
+            Write-Host "=== Installed packages ==="
             Get-ChildItem "${{ env.VCPKG_ROOT }}\installed\"
+            Write-Host "=== Triplet directory ==="
+            if (Test-Path "${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\") {
+              Get-ChildItem "${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\"
+            } else {
+              Write-Host "Triplet directory not found"
+            }
           } else {
             Write-Host "No installed directory found"
           }
@@ -108,7 +120,7 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja" -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}
+          cmake -B ${{ github.workspace }}/build -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake -G "Ninja" -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }} -DCMAKE_PREFIX_PATH="${{ env.VCPKG_ROOT }}/installed/${{ env.VCPKG_DEFAULT_TRIPLET }}"
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config Release
