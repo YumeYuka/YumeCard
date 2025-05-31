@@ -48,7 +48,13 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           cd ${{ github.workspace }}
-          & "${{ env.VCPKG_ROOT }}\vcpkg.exe" --verbose install --triplet ${{ env.VCPKG_DEFAULT_TRIPLET }}
+          $arguments = @(
+            "--verbose",
+            "install",
+            "--triplet",
+            "${{ env.VCPKG_DEFAULT_TRIPLET }}"
+          )
+          Start-Process -FilePath "${{ env.VCPKG_ROOT }}\vcpkg.exe" -ArgumentList $arguments -Wait -NoNewWindow
         shell: pwsh
 
       - name: Configure CMake (Linux)
