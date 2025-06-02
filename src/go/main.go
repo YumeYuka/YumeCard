@@ -8,10 +8,46 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
 )
+
+// VersionInfo 版本信息结构体
+type VersionInfo struct {
+	Major           int
+	Minor           int
+	Patch           int
+	String          string
+	TargetPlatform  string
+	TargetArch      string
+	CompilerVersion string
+	Compiler        string
+}
+
+// FullString 返回完整的版本信息字符串
+func (v *VersionInfo) FullString() string {
+	return fmt.Sprintf("YumeCard v%s (%s/%s) %s %s",
+		v.String, v.TargetPlatform, v.TargetArch, v.Compiler, v.CompilerVersion)
+}
+
+// 全局版本信息
+var AppVersion = VersionInfo{
+	Major:           1,
+	Minor:           0,
+	Patch:           0,
+	String:          "1.0.0",
+	TargetPlatform:  runtime.GOOS,
+	TargetArch:      runtime.GOARCH,
+	CompilerVersion: runtime.Version(),
+	Compiler:        runtime.Compiler,
+}
+
+// PrintVersion 显示版本信息
+func PrintVersion() {
+	fmt.Println(AppVersion.FullString())
+}
 
 // AppConfig 配置信息结构体
 type AppConfig struct {
