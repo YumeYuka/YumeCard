@@ -354,8 +354,10 @@ namespace Yume {
 
             auto              now     = std::chrono::system_clock::now();
             auto              nowTime = std::chrono::system_clock::to_time_t(now);
+            std::tm          tm_buf;
+            localtime_s(&tm_buf, &nowTime);
             std::stringstream dateStream;
-            dateStream << std::put_time(std::localtime(&nowTime), "%Y-%m-%d %H:%M:%S");
+            dateStream << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
             variables["currentDate"] = dateStream.str();
             ScreenshotManager screenshotManager(
                 m_style_dir); // Instance of ScreenshotManager with custom style dir            //
