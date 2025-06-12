@@ -352,10 +352,14 @@ namespace Yume {
             variables["commitCount"] = std::to_string(commits.size());
             variables["branch"]      = branch;
 
-            auto              now     = std::chrono::system_clock::now();
-            auto              nowTime = std::chrono::system_clock::to_time_t(now);
-            std::tm          tm_buf;
+            auto    now     = std::chrono::system_clock::now();
+            auto    nowTime = std::chrono::system_clock::to_time_t(now);
+            std::tm tm_buf;
+#if defined(_WIN32) || defined(_WIN64)
             localtime_s(&tm_buf, &nowTime);
+#else
+            localtime_r(&nowTime, &tm_buf);
+#endif
             std::stringstream dateStream;
             dateStream << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
             variables["currentDate"] = dateStream.str();
